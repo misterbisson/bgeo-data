@@ -219,6 +219,12 @@ $sources = array(
 		'merge' => FALSE,
 	),
 	(object) array(
+		'src_file' => 'ne_10m_geography_regions_polys.geojson',
+		'group_key' => 'subregion',
+		'out_path' => '/output/regions/',
+		'merge' => 'regions',
+	),
+	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
 		'group_key' => 'unit_type',
 		'out_path' => '/output/parks-and-protected-lands/',
