@@ -104,8 +104,15 @@ function get_and_split( $src_path, $group_key, $out_path )
 	return $error;
 }
 
-$output_dir = __DIR__ . '/output/states-provinces/';
+function new_geometry( $input, $adapter )
+{
+	if ( ! class_exists( 'geoPHP' ) )
+	{
+		require_once __DIR__ . '/components/external/geoPHP/geoPHP.inc';
+	}
 
+	return geoPHP::load( $input, $adapter );
+} // END new_geometry
 
 
 $sources = array(
@@ -132,7 +139,7 @@ $sources = array(
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region_big' ),
-		'out_path' => '/output/region-states-and-provinces/',
+		'out_path' => '/output/regions-states-and-provinces/',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
@@ -164,8 +171,20 @@ this is disabled because no groups are obvious yet
 	),
 */
 );
-
+/*
 foreach ( $sources as $source )
 {
 	print_r( get_and_split( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->group_key, __DIR__ . $source->out_path ) );
 }
+*/
+
+$geometry = new_geometry( file_get_contents( __DIR__ . '/output/region-states-and-provinces/sudan-darfour-darfur.geojson' ), 'json' );
+$parts = $geometry->getComponents();
+$whole = $parts[0];
+unset( $parts[0] );
+foreach ( $parts as $part )
+{
+	$whole = $whole->union( $part->buffer( 1.1 ) );
+	echo $whole->area() . "\n";
+}
+echo( $whole->buffer( -1 )->simplify( .1, FALSE )->out( 'json' ) ) . "\n";
