@@ -180,7 +180,7 @@ $sources = array(
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'region_wb',
-		'out_path' => '/output/regions-countries/',
+		'out_path' => '/output/regions/',
 		'merge' => TRUE,
 	),
 	(object) array(
@@ -192,13 +192,13 @@ $sources = array(
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
-		'out_path' => '/output/regions-states-and-provinces/',
+		'out_path' => '/output/regions/',
 		'merge' => TRUE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region_big' ),
-		'out_path' => '/output/regions-states-and-provinces/',
+		'out_path' => '/output/regions/',
 		'merge' => TRUE,
 	),
 	(object) array(
