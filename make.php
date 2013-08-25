@@ -4,14 +4,6 @@ ini_set( 'memory_limit', '4G' );
 
 function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 {
-	// init the output and error var
-	$output = (object) array();
-	$output_merged = (object) array();
-	$error = (object) array(
-		'nogroup' => 0,
-		'text' => '',
-	);
-
 	// the skeleton objects for the geo feature
 	$feature_skel = (object) array(
 		'type' => 'FeatureCollection',
@@ -21,6 +13,14 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 		'type' => 'Feature',
 		'properties' => (object) array(),
 		'geometry' => (object) array(),
+	);
+
+	// init the output and error var
+	$output = (object) array();
+	$output_merged = clone $feature_skel;
+	$error = (object) array(
+		'nogroup' => 0,
+		'text' => '',
 	);
 
 	// attempt to read the source file
@@ -51,9 +51,9 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 					$error->nogroup++;
 					continue count( (array) $group_key );
 				}
-	
+
 				// get the group partial name
-				$_group = preg_replace( '/[^a-z0-9]/', '-', strtolower( $feature->properties->$one_group_key ) );		
+				$_group = preg_replace( '/[^a-z0-9]/', '-', strtolower( $feature->properties->$one_group_key ) );
 
 				if ( empty( $group ) )
 				{
@@ -88,10 +88,10 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 		}
 
 		// initialize merged output group and properties
-		if ( ! isset( $output_merged->$group ) )
+		if ( ! isset( $output_merged->features[ $group ] ) )
 		{
-			$output_merged->$group = clone $merged_skel;
-			$output_merged->$group->properties = $merged_props;
+			$output_merged->features[ $group ] = clone $merged_skel;
+			$output_merged->features[ $group ]->properties = $merged_props;
 		}
 
 		// add this feature to the group in the output var
@@ -111,18 +111,29 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 	// no more playing around, output this stuff
 	foreach ( $output as $k => $v )
 	{
-		// maybe merge the geometry
-		if ( $merge )
+		// save this or merge it
+		if ( ! $merge )
 		{
-			$output_merged->$k->geometry = json_decode( merge_into_one( $v ) );
-			$v = $output_merged->$k;
+			// save this json
+			file_put_contents( $out_path . $k . '.geojson', json_encode( $v ) );
+
+			// explicitly clean up vars to save memory
+			unset( $output->$k );
 		}
+		else
+		{
+			$output_merged->features[ $k ]->geometry = json_decode( merge_into_one( $v ) );
+		}
+	}
+
+	// if we're merging, save the result
+	if ( $merge )
+	{
+		// sort the array to reset the indexs to numeric
+		sort( $output_merged->features );
 
 		// save this json
-		file_put_contents( $out_path . $k . '.geojson', json_encode( $v ) );
-
-		// explicitly clean up vars to save memory
-		unset( $output->$k, $output_merged->$k );
+		file_put_contents( $out_path . $merge . '.geojson', json_encode( $output_merged ) );
 	}
 
 	// explicitly clean up vars to save memory
@@ -181,7 +192,7 @@ $sources = array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'region_wb',
 		'out_path' => '/output/regions/',
-		'merge' => TRUE,
+		'merge' => 'country-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
@@ -193,13 +204,13 @@ $sources = array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
 		'out_path' => '/output/regions/',
-		'merge' => TRUE,
+		'merge' => 'state-and-province-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region_big' ),
 		'out_path' => '/output/regions/',
-		'merge' => TRUE,
+		'merge' => 'state-and-province-groups-large',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
