@@ -185,61 +185,61 @@ $sources = array(
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
-		'out_path' => '/output/countries/',
+		'out_path' => '/simplified-geos/countries/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'region_wb',
-		'out_path' => '/output/regions/',
+		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'country-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => 'admin',
-		'out_path' => '/output/states-and-provinces/',
+		'out_path' => '/simplified-geos/states-and-provinces/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
-		'out_path' => '/output/regions/',
+		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region_big' ),
-		'out_path' => '/output/regions/',
+		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups-large',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
 		'group_key' => 'region',
-		'out_path' => '/output/regions/',
+		'out_path' => '/simplified-geos/regions/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
 		'group_key' => 'subregion',
-		'out_path' => '/output/regions/',
+		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'regions',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
 		'group_key' => 'unit_type',
-		'out_path' => '/output/parks-and-protected-lands/',
+		'out_path' => '/simplified-geos/parks-and-protected-lands/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_marine_polys.geojson',
 		'group_key' => 'featurecla',
-		'out_path' => '/output/water-features/',
+		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_lakes.geojson',
 		'group_key' => 'featurecla',
-		'out_path' => '/output/water-features/',
+		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
 
@@ -248,7 +248,7 @@ this is disabled because no groups are obvious yet
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
 		'group_key' => 'name_conve',
-		'out_path' => '/output/urban-areas/',
+		'out_path' => '/simplified-geos/urban-areas/',
 	),
 */
 );
