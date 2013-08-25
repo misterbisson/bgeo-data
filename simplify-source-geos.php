@@ -94,6 +94,8 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 			$output_merged->features[ $group ]->properties = $merged_props;
 		}
 
+		$feature = simplify_geometry( $feature );
+
 		// add this feature to the group in the output var
 		$output->$group->features[] = $feature;
 	}
@@ -122,7 +124,7 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 		}
 		else
 		{
-			$output_merged->features[ $k ]->geometry = json_decode( merge_into_one( $v ) );
+			$output_merged->features[ $k ]->geometry = merge_into_one( $v );
 		}
 	}
 
@@ -167,7 +169,24 @@ function merge_into_one( $src )
 	}
 
 	// return the merged and smoother result
-	return $whole->buffer( -1 )->simplify( .1, FALSE )->out( 'json' );
+	return json_decode( $whole->buffer( -1 )->simplify( .1, FALSE )->out( 'json' ) );
+}
+
+function simplify_geometry( $src )
+{
+	// get a geometry from the input json
+	$geometry = new_geometry( $src, 'json' );
+
+	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+
+	$geometry = $geometry->buffer( 1.1 )->simplify( .1, FALSE )->buffer( -1 );
+//	$geometry = $geometry->buffer( 1.1 );
+
+	echo 'modd: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+
+//print_r( $src );
+//die;
+	return json_decode( $geometry->out( 'json' ) );
 }
 
 function new_geometry( $input, $adapter )
@@ -188,18 +207,21 @@ $sources = array(
 		'out_path' => '/simplified-geos/countries/',
 		'merge' => FALSE,
 	),
+/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'region_wb',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'country-groups',
 	),
+*/
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => 'admin',
 		'out_path' => '/simplified-geos/states-and-provinces/',
 		'merge' => FALSE,
 	),
+/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
@@ -242,7 +264,7 @@ $sources = array(
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
-
+*/
 /*
 this is disabled because no groups are obvious yet
 	(object) array(
