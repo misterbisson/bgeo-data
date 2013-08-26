@@ -211,8 +211,6 @@ function simplify_geometry( $src )
 
 	echo 'simp: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
-//print_r( $src );
-//die;
 	return json_decode( $geometry->out( 'json' ) );
 }
 
