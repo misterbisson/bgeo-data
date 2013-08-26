@@ -53,7 +53,16 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 				}
 
 				// get the group partial name
-				$_group = preg_replace( '/[^a-z0-9]/', '-', strtolower( $feature->properties->$one_group_key ) );
+				// special handling for numerics
+				if ( is_numeric( $feature->properties->$one_group_key ) )
+				{
+					$_group = (string) pow( 10, strlen( ceil( $feature->properties->$one_group_key ) ) );
+				}
+				// sanitize text group names
+				else
+				{
+					$_group = preg_replace( '/[^a-z0-9]/', '-', strtolower( $feature->properties->$one_group_key ) );
+				}
 
 				if ( empty( $group ) )
 				{
@@ -219,6 +228,7 @@ function new_geometry( $input, $adapter )
 
 
 $sources = array(
+/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
@@ -279,14 +289,14 @@ $sources = array(
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
-/*
-this is disabled because no groups are obvious yet
+*/
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
-		'group_key' => 'name_conve',
+		'group_key' => 'max_pop_al',
 		'out_path' => '/simplified-geos/urban-areas/',
+		'merge' => FALSE,
 	),
-*/
+
 );
 
 foreach ( $sources as $source )
