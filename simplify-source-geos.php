@@ -94,7 +94,7 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 			$output_merged->features[ $group ]->properties = $merged_props;
 		}
 
-		$feature = simplify_geometry( $feature );
+		$feature->geometry = simplify_geometry( $feature );
 
 		// add this feature to the group in the output var
 		$output->$group->features[] = $feature;
@@ -150,13 +150,15 @@ function merge_into_one( $src )
 	// get a geometry from the input json
 	$geometry = new_geometry( $src, 'json' );
 
+	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+
 	// break the geometry into sub-components
 	$parts = $geometry->getComponents();
 
 	// sanity check
 	if ( ! is_array( $parts ) )
 	{
-		return $geometry->out( 'json' );
+		return json_decode( $geometry->out( 'json' ) );
 	}
 
 	// merge the parts into a single whole
@@ -165,11 +167,11 @@ function merge_into_one( $src )
 	foreach ( $parts as $part )
 	{
 		$whole = $whole->union( $part->buffer( 1.1 ) );
-		echo $whole->area() . "\n";
+		echo 'modd: ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
 	}
 
 	// return the merged and smoother result
-	return json_decode( $whole->buffer( -1 )->simplify( .1, FALSE )->out( 'json' ) );
+	return json_decode( $whole->simplify( .1, FALSE )->buffer( -1 )->out( 'json' ) );
 }
 
 function simplify_geometry( $src )
@@ -179,8 +181,7 @@ function simplify_geometry( $src )
 
 	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
-	$geometry = $geometry->buffer( 1.1 )->simplify( .1, FALSE )->buffer( -1 );
-//	$geometry = $geometry->buffer( 1.1 );
+	$geometry = $geometry->buffer( 1.3 )->simplify( .05, FALSE )->buffer( -1 );
 
 	echo 'modd: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
