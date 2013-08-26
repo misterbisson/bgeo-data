@@ -94,7 +94,7 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 			$output_merged->features[ $group ]->properties = $merged_props;
 		}
 
-		$feature->geometry = simplify_geometry( $feature );
+//		$feature->geometry = simplify_geometry( $feature );
 
 		// add this feature to the group in the output var
 		$output->$group->features[] = $feature;
@@ -117,7 +117,7 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 		if ( ! $merge )
 		{
 			// save this json
-			file_put_contents( $out_path . $k . '.geojson', json_encode( $v ) );
+			file_put_contents( $out_path . $k . '.geojson', bgeo_json_encode( $v ) );
 
 			// explicitly clean up vars to save memory
 			unset( $output->$k );
@@ -135,7 +135,7 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 		sort( $output_merged->features );
 
 		// save this json
-		file_put_contents( $out_path . $merge . '.geojson', json_encode( $output_merged ) );
+		file_put_contents( $out_path . $merge . '.geojson', bgeo_json_encode( $output_merged ) );
 	}
 
 	// explicitly clean up vars to save memory
@@ -143,6 +143,23 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 
 	// return any errors
 	return $error;
+}
+
+function bgeo_json_encode( $src )
+{
+	return str_ireplace( 
+		array(
+			'"features":', // separates the preamble from the content
+			'},{',      // separates features from eachother
+			',"geometry"', // separates the geometry from the properties
+		), 
+		array(
+			"\"features\":\n",
+			"}\n,\n{",
+			",\n\"geometry\"",
+		), 
+		json_encode( $src )
+	);
 }
 
 function merge_into_one( $src )
