@@ -103,7 +103,7 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 			$output_merged->features[ $group ]->properties = $merged_props;
 		}
 
-//		$feature->geometry = simplify_geometry( $feature );
+		$feature->geometry = simplify_geometry( $feature );
 
 		// add this feature to the group in the output var
 		$output->$group->features[] = $feature;
@@ -228,7 +228,6 @@ function new_geometry( $input, $adapter )
 
 
 $sources = array(
-/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
@@ -289,7 +288,6 @@ $sources = array(
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
-*/
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
 		'group_key' => 'max_pop_al',
