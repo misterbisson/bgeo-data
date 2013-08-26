@@ -167,7 +167,7 @@ function merge_into_one( $src )
 	foreach ( $parts as $part )
 	{
 		$whole = $whole->union( $part->buffer( 1.1 ) );
-		echo 'modd: ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
+		echo 'simp: ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
 	}
 
 	// return the merged and smoother result
@@ -183,7 +183,7 @@ function simplify_geometry( $src )
 
 	$geometry = $geometry->buffer( 1.3 )->simplify( .05, FALSE )->buffer( -1 );
 
-	echo 'modd: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+	echo 'simp: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
 //print_r( $src );
 //die;
@@ -208,21 +208,18 @@ $sources = array(
 		'out_path' => '/simplified-geos/countries/',
 		'merge' => FALSE,
 	),
-/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'region_wb',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'country-groups',
 	),
-*/
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => 'admin',
 		'out_path' => '/simplified-geos/states-and-provinces/',
 		'merge' => FALSE,
 	),
-/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
@@ -265,7 +262,6 @@ $sources = array(
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
-*/
 /*
 this is disabled because no groups are obvious yet
 	(object) array(
