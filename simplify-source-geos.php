@@ -204,14 +204,31 @@ function simplify_geometry( $src )
 {
 	// get a geometry from the input json
 	$geometry = new_geometry( $src, 'json' );
+	$orig_area = $geometry->area();
 
 	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
-	$geometry = $geometry->buffer( 1.3 )->simplify( .05, FALSE )->buffer( -1 );
+	$buffer_factor = 1.00;
+	$simplify_factor = 0.050;
+	$iteration = 1;
 
-	echo 'simp: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+	do
+	{
+		echo "Attempt $iteration with buffer( " . ( $buffer_factor + 0.3 ) . " ) and simplify( $simplify_factor )\n";
 
-	return json_decode( $geometry->out( 'json' ) );
+		$simple_geometry = clone $geometry;
+		$simple_geometry = $simple_geometry->buffer( $buffer_factor + 0.3 )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
+		$simple_area = $simple_geometry->area();
+
+		$buffer_factor += 0.01;
+		$simplify_factor -= 0.002;
+		$iteration += 1;
+	}
+	while ( $orig_area > $simple_area );
+
+	echo 'simp: ' . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->area() . " area\n";
+
+	return json_decode( $simple_geometry->out( 'json' ) );
 }
 
 function new_geometry( $input, $adapter )
