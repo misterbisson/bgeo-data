@@ -208,7 +208,7 @@ function simplify_geometry( $src )
 
 	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
-	$buffer_factor = 1.00;
+	$buffer_factor = 0.50;
 	$simplify_factor = 0.050;
 	$iteration = 1;
 
@@ -243,6 +243,7 @@ function new_geometry( $input, $adapter )
 
 
 $sources = array(
+/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
@@ -303,6 +304,7 @@ $sources = array(
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
+*/
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
 		'group_key' => 'max_pop_al',
