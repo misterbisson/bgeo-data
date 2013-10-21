@@ -2,7 +2,7 @@
 
 ini_set( 'memory_limit', '4G' );
 
-function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
+function get_and_split( $log_path, $src_path, $group_key, $out_path, $merge = FALSE )
 {
 
 	// check for and attempt to create the output directory
@@ -15,19 +15,29 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 		}
 	}
 
+	// check for and attempt to create the log directory
+	if ( ! ( file_exists( $log_path ) && is_dir( $log_path ) ) )
+	{
+		if ( ! mkdir( $log_path, 0755, TRUE ) )
+		{
+			$error->text = 'can\'t create log directory';
+			return $error;
+		}
+	}
+
 	// start the log csv file
 	$increment = 1;
 	do
 	{
-		$log_path = $out_path . preg_replace( '/[^a-zA-Z0-9]/', '-', basename( $src_path, '.geojson' ) ) . '-pass-' . $increment . '.csv';
+		$log_path_file = $log_path . preg_replace( '/[^a-zA-Z0-9]/', '-', basename( $src_path, '.geojson' ) ) . '-pass-' . $increment . '.csv';
 		$increment++;
 	}
-	while ( file_exists( $log_path ) );
+	while ( file_exists( $log_path_file ) );
 
-	$log_handle = fopen( $log_path, 'w' );
+	$log_handle = fopen( $log_path_file, 'w' );
 	if ( ! $log_handle )
 	{
-		$error->text = $log_path;
+		$error->text = 'can\t create log file at ' . $log_path_file;
 		return $error;
 	}
 
@@ -192,7 +202,7 @@ function geometry_stats( $src )
 
 	return (object) array(
 		'type' => $geometry->geometryType(),
-		'components' => $geometry->getComponents(),
+		'components' => count( (array) $geometry->getComponents() ),
 		'area' => $geometry->area(),
 	);
 }
@@ -274,9 +284,6 @@ function simplify_geometry( $src )
 	echo 'simp: ' . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->area() . " area\n";
 
 	$return = json_decode( $simple_geometry->out( 'json' ) );
-
-print_r( $return );
-die;
 
 	return json_decode( $simple_geometry->out( 'json' ) );
 }
@@ -373,5 +380,5 @@ $sources = array(
 
 foreach ( $sources as $source )
 {
-	print_r( get_and_split( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->group_key, __DIR__ . $source->out_path, $source->merge ) );
+	print_r( get_and_split( __DIR__ . '/logs/', __DIR__ . '/naturalearthdata/' . $source->src_file, $source->group_key, __DIR__ . $source->out_path, $source->merge ) );
 }
