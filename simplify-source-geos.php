@@ -208,7 +208,7 @@ function simplify_geometry( $src )
 
 	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
-	$buffer_factor = 0.50;
+	$buffer_factor = 1.50;
 	$simplify_factor = 0.050;
 	$iteration = 1;
 
@@ -217,7 +217,7 @@ function simplify_geometry( $src )
 		echo "Attempt $iteration with buffer( " . ( $buffer_factor + 0.3 ) . " ) and simplify( $simplify_factor )\n";
 
 		$simple_geometry = clone $geometry;
-		$simple_geometry = $simple_geometry->buffer( $buffer_factor + 0.3 )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
+		$simple_geometry = $simple_geometry->buffer( $buffer_factor + 0.1 )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
 		$simple_area = $simple_geometry->area();
 
 		$buffer_factor += 0.01;
@@ -248,6 +248,7 @@ $sources = array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
 		'out_path' => '/simplified-geos/countries/',
+		'merge' => FALSE,
 		'merge' => FALSE,
 	),
 	(object) array(
@@ -304,11 +305,17 @@ $sources = array(
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
-*/
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
 		'group_key' => 'max_pop_al',
 		'out_path' => '/simplified-geos/urban-areas/',
+		'merge' => FALSE,
+	),
+*/
+	(object) array(
+		'src_file' => 'ne_10m_urban_areas_landscan_trancated.geojson',
+		'group_key' => 'max_pop_al',
+		'out_path' => '/simplified-geos/urban-areas-test/',
 		'merge' => FALSE,
 	),
 
