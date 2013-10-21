@@ -245,7 +245,6 @@ function new_geometry( $input, $adapter )
 
 
 $sources = array(
-/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
@@ -313,7 +312,7 @@ $sources = array(
 		'out_path' => '/simplified-geos/urban-areas/',
 		'merge' => FALSE,
 	),
-*/
+/*
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan_trancated.geojson',
 		'group_key' => 'max_pop_al',
@@ -321,6 +320,7 @@ $sources = array(
 		'merge' => FALSE,
 	),
 
+*/
 );
 
 foreach ( $sources as $source )
