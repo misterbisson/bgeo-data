@@ -4,6 +4,33 @@ ini_set( 'memory_limit', '4G' );
 
 function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 {
+
+	// check for and attempt to create the output directory
+	if ( ! ( file_exists( $out_path ) && is_dir( $out_path ) ) )
+	{
+		if ( ! mkdir( $out_path, 0755, TRUE ) )
+		{
+			$error->text = 'can\'t create output directory';
+			return $error;
+		}
+	}
+
+	// start the log csv file
+	$increment = 1;
+	do
+	{
+		$log_path = $out_path . preg_replace( '/[^a-zA-Z0-9]/', '-', basename( $src_path, '.geojson' ) ) . '-pass-' . $increment . '.csv';
+		$increment++;
+	}
+	while ( file_exists( $log_path ) );
+
+	$log_handle = fopen( $log_path, 'w' );
+	if ( ! $log_handle )
+	{
+		$error->text = $log_path;
+		return $error;
+	}
+
 	// the skeleton objects for the geo feature
 	$feature_skel = (object) array(
 		'type' => 'FeatureCollection',
@@ -103,20 +130,24 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 			$output_merged->features[ $group ]->properties = $merged_props;
 		}
 
+		$log_geo_orig = geometry_stats( $feature );
+
 		$feature->geometry = simplify_geometry( $feature );
+
+		$log_geo_simpl = geometry_stats( $feature );
+
+		fputcsv( $log_handle, array(
+			'name' => $feature->properties->name,
+			'orig_type' => $log_geo_orig->type,
+			'orig_components' => $log_geo_orig->components,
+			'orig_area' => $log_geo_orig->area,
+			'simpl_type' => $log_geo_simpl->type,
+			'simpl_components' => $log_geo_simpl->components,
+			'simpl_area' => $log_geo_simpl->area,
+		) );
 
 		// add this feature to the group in the output var
 		$output->$group->features[] = $feature;
-	}
-
-	// check for and attempt to create the output directory
-	if ( ! ( file_exists( $out_path ) && is_dir( $out_path ) ) )
-	{
-		if ( ! mkdir( $out_path, 0755, TRUE ) )
-		{
-			$error->text = 'can\'t create output directory';
-			return $error;
-		}
 	}
 
 	// no more playing around, output this stuff
@@ -152,6 +183,18 @@ function get_and_split( $src_path, $group_key, $out_path, $merge = FALSE )
 
 	// return any errors
 	return $error;
+}
+
+function geometry_stats( $src )
+{
+	// get a geometry from the input json
+	$geometry = new_geometry( $src, 'json' );
+
+	return (object) array(
+		'type' => $geometry->geometryType(),
+		'components' => $geometry->getComponents(),
+		'area' => $geometry->area(),
+	);
 }
 
 function bgeo_json_encode( $src )
@@ -229,6 +272,11 @@ function simplify_geometry( $src )
 	while ( $orig_area > $simple_area );
 
 	echo 'simp: ' . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->area() . " area\n";
+
+	$return = json_decode( $simple_geometry->out( 'json' ) );
+
+print_r( $return );
+die;
 
 	return json_decode( $simple_geometry->out( 'json' ) );
 }
