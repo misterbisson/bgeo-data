@@ -26,6 +26,12 @@ function get_and_split( $log_path, $src_path, $group_key, $out_path, $merge = FA
 	}
 
 	// start the log csv file
+	$log_path_file = $log_path . preg_replace( '/[^a-zA-Z0-9]/', '-', basename( $src_path, '.geojson' ) ) . '.csv';
+
+/*
+commented out because it's not really needed
+
+	make sure the file name is unique
 	$increment = 1;
 	do
 	{
@@ -33,6 +39,7 @@ function get_and_split( $log_path, $src_path, $group_key, $out_path, $merge = FA
 		$increment++;
 	}
 	while ( file_exists( $log_path_file ) );
+*/
 
 	$log_handle = fopen( $log_path_file, 'w' );
 	if ( ! $log_handle )
