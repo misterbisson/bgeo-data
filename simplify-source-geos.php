@@ -149,12 +149,13 @@ commented out because it's not really needed
 
 		$log_geo_orig = geometry_stats( $feature );
 
+		// @TODO: log the execution time for this step
 		$feature->geometry = simplify_geometry( $feature );
 
 		$log_geo_simpl = geometry_stats( $feature );
 
 		fputcsv( $log_handle, array(
-			'name' => $feature->properties->name,
+			'name' => isset( $feature->properties->name_conve ) ? $feature->properties->name_conve : $feature->properties->name,
 			'orig_type' => $log_geo_orig->type,
 			'orig_components' => $log_geo_orig->components,
 			'orig_area' => $log_geo_orig->area,
@@ -268,7 +269,7 @@ function simplify_geometry( $src )
 
 	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
-	$buffer_factor = 1.50;
+	$buffer_factor = 1.09;
 	$buffer_buffer_factor = 0.01;
 	$simplify_factor = 0.050;
 	$iteration = 1;
