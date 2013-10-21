@@ -209,18 +209,20 @@ function simplify_geometry( $src )
 	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
 	$buffer_factor = 1.50;
+	$buffer_buffer_factor = 0.01;
 	$simplify_factor = 0.050;
 	$iteration = 1;
 
 	do
 	{
-		echo "Attempt $iteration with buffer( " . ( $buffer_factor + 0.3 ) . " ) and simplify( $simplify_factor )\n";
+		echo "Attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )\n";
 
 		$simple_geometry = clone $geometry;
-		$simple_geometry = $simple_geometry->buffer( $buffer_factor + 0.1 )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
+		$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
 		$simple_area = $simple_geometry->area();
 
-		$buffer_factor += 0.01;
+		// $buffer_factor += 0.01;
+		$buffer_buffer_factor += 0.01;
 		$simplify_factor -= 0.002;
 		$iteration += 1;
 	}
