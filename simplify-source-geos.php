@@ -237,7 +237,7 @@ function merge_into_one( $src )
 	// get a geometry from the input json
 	$geometry = new_geometry( $src, 'json' );
 
-	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+	echo 'merge orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
 	// break the geometry into sub-components
 	$parts = $geometry->getComponents();
@@ -245,7 +245,7 @@ function merge_into_one( $src )
 	// sanity check
 	if ( ! is_array( $parts ) )
 	{
-		return simplify_geometry( $geometry->out( 'json' ) );
+		return json_decode( $geometry->out( 'json' ) );
 	}
 
 	// merge the parts into a single whole
@@ -253,8 +253,8 @@ function merge_into_one( $src )
 	unset( $parts[0] );
 	foreach ( $parts as $k => $part )
 	{
-		$whole = $whole->union( $part->buffer( 1.1 ) );
-		echo 'part ' . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
+		$whole = $whole->union( $part );
+		echo 'merge step ' . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
 	}
 
 	// return the merged and smoother result
@@ -267,7 +267,7 @@ function simplify_geometry( $src )
 	$geometry = new_geometry( $src, 'json' );
 	$orig_area = $geometry->area();
 
-	echo 'orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+	echo 'simp orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
 
 	$buffer_factor = 1.09;
 	$buffer_buffer_factor = 0.01;
@@ -276,7 +276,7 @@ function simplify_geometry( $src )
 
 	do
 	{
-		echo "Attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )\n";
+		echo "simp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )\n";
 
 		$simple_geometry = clone $geometry;
 		$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
@@ -289,7 +289,7 @@ function simplify_geometry( $src )
 	}
 	while ( $orig_area > $simple_area );
 
-	echo 'simp: ' . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->area() . " area\n";
+	echo 'simp simp: ' . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->area() . " area\n";
 
 	$return = json_decode( $simple_geometry->out( 'json' ) );
 
@@ -308,7 +308,6 @@ function new_geometry( $input, $adapter )
 
 
 $sources = array(
-/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
@@ -328,7 +327,6 @@ $sources = array(
 		'out_path' => '/simplified-geos/states-and-provinces/',
 		'merge' => FALSE,
 	),
-*/
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
@@ -341,21 +339,18 @@ $sources = array(
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups-large',
 	),
-/*
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
 		'group_key' => 'region',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => FALSE,
 	),
-*/
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
 		'group_key' => 'subregion',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'regions',
 	),
-/*
 	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
 		'group_key' => 'unit_type',
@@ -380,7 +375,6 @@ $sources = array(
 		'out_path' => '/simplified-geos/urban-areas/',
 		'merge' => FALSE,
 	),
-*/
 /*
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan_trancated.geojson',
