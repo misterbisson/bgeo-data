@@ -245,20 +245,20 @@ function merge_into_one( $src )
 	// sanity check
 	if ( ! is_array( $parts ) )
 	{
-		return json_decode( $geometry->out( 'json' ) );
+		return simplify_geometry( $geometry->out( 'json' ) );
 	}
 
 	// merge the parts into a single whole
 	$whole = $parts[0];
 	unset( $parts[0] );
-	foreach ( $parts as $part )
+	foreach ( $parts as $k => $part )
 	{
 		$whole = $whole->union( $part->buffer( 1.1 ) );
-		echo 'simp: ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
+		echo 'part ' . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
 	}
 
 	// return the merged and smoother result
-	return json_decode( $whole->simplify( .1, FALSE )->buffer( -1 )->out( 'json' ) );
+	return simplify_geometry( $whole->out( 'json' ) );
 }
 
 function simplify_geometry( $src )
@@ -308,6 +308,7 @@ function new_geometry( $input, $adapter )
 
 
 $sources = array(
+/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'continent',
@@ -327,6 +328,7 @@ $sources = array(
 		'out_path' => '/simplified-geos/states-and-provinces/',
 		'merge' => FALSE,
 	),
+*/
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
@@ -339,18 +341,21 @@ $sources = array(
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups-large',
 	),
+/*
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
 		'group_key' => 'region',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => FALSE,
 	),
+*/
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
 		'group_key' => 'subregion',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'regions',
 	),
+/*
 	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
 		'group_key' => 'unit_type',
@@ -375,6 +380,7 @@ $sources = array(
 		'out_path' => '/simplified-geos/urban-areas/',
 		'merge' => FALSE,
 	),
+*/
 /*
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan_trancated.geojson',
