@@ -265,9 +265,9 @@ function simplify_geometry( $src )
 {
 	// get a geometry from the input json
 	$geometry = new_geometry( $src, 'json' );
-	$orig_area = $geometry->area();
+	$orig_area = $geometry->envelope()->area();
 
-	echo 'simp orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
+	echo 'simp orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area\n";
 
 	$buffer_factor = 1.09;
 	$buffer_buffer_factor = 0.01;
@@ -280,7 +280,7 @@ function simplify_geometry( $src )
 
 		$simple_geometry = clone $geometry;
 		$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
-		$simple_area = $simple_geometry->area();
+		$simple_area = $simple_geometry->envelope()->area();
 
 		// $buffer_factor += 0.01;
 		$buffer_buffer_factor += 0.01;
