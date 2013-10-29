@@ -217,7 +217,7 @@ commented out because it's not really needed
 						'y_woeid'            => '',
 						'y_parent_woeid'     => '',
 						'y_response'         => '',
-						'wikipedia_uri'      => $vv->properties->wikipedia,
+						'wikipedia_uri'      => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
 					) );
 
 					if ( ! $saved )
@@ -239,38 +239,40 @@ commented out because it's not really needed
 		// if we're merging, save the result
 		if ( $merge )
 		{
-			// sort the array to reset the indexs to numeric
+			// sort the array to reset the indexes to numeric
 			sort( $output_merged->features );
 
 			// save this json
 			file_put_contents( $out_path . $merge . '.geojson', $this->json_encode( $output_merged ) );
 
-			$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . ( isset( $vv->properties->name_conve ) ? $vv->properties->name_conve : $vv->properties->name );
-
-			$saved = $this->insert_geo( (object) array(
-				'bgeo_key' => md5( $bgeo_key ),
-				'bgeo_key_unencoded' => $bgeo_key,
-				'bgeo_geometry'      => $vv->geometry,
-				'ne_name'            => isset( $vv->properties->name_conve ) ? $vv->properties->name_conve : $vv->properties->name,
-				'ne_admin'           => $vv->properties->admin,
-				'ne_type'            => $vv->properties->type,
-				'ne_properties'      => $vv->properties,
-				'y_name'             => '',
-				'y_type'             => '',
-				'y_woeid'            => '',
-				'y_parent_woeid'     => '',
-				'y_response'         => '',
-				'wikipedia_uri'      => $vv->properties->wikipedia,
-			) );
+			foreach( $output_merged->features as $kk => $vv )
+			{
+				$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . ( isset( $vv->properties->name_conve ) ? $vv->properties->name_conve : $vv->properties->name );
+	
+				$saved = $this->insert_geo( (object) array(
+					'bgeo_key' => md5( $bgeo_key ),
+					'bgeo_key_unencoded' => $bgeo_key,
+					'bgeo_geometry'      => $vv->geometry,
+					'ne_name'            => isset( $vv->properties->name_conve ) ? $vv->properties->name_conve : $vv->properties->name,
+					'ne_admin'           => $vv->properties->admin,
+					'ne_type'            => $vv->properties->type,
+					'ne_properties'      => $vv->properties,
+					'y_name'             => '',
+					'y_type'             => '',
+					'y_woeid'            => '',
+					'y_parent_woeid'     => '',
+					'y_response'         => '',
+					'wikipedia_uri'      => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
+				) );
+			}
 
 			if ( ! $saved )
 			{
 				$error->unsaved++;
 			}
 
+			echo "\nSaved " . $out_path . $merge . "\n\n";
 		}
-
-		echo "\nSaved " . $out_path . $merge . "\n\n";
 
 		// explicitly clean up vars to save memory
 		unset( $source, $output, $output_merged );
