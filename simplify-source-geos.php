@@ -202,13 +202,17 @@ commented out because it's not really needed
 
 				foreach( $v->features as $kk => $vv )
 				{
-					$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . ( ! empty( $vv->properties->name ) ? $vv->properties->name : $vv->properties->name_conve );
+
+					$feature_name = $this->extract_name( $vv->properties );
+
+					$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . $feature_name;
 
 					$saved = $this->insert_geo( (object) array(
-						'bgeo_key' => md5( $bgeo_key ),
+						'bgeo_key'           => md5( $bgeo_key ),
 						'bgeo_key_unencoded' => $bgeo_key,
 						'bgeo_geometry'      => $vv->geometry,
-						'ne_name'            => ( ! empty( $vv->properties->name ) ? $vv->properties->name : $vv->properties->name_conve ),
+						'bgeo_type'          => $default_type,
+						'ne_name'            => $feature_name,
 						'ne_admin'           => $vv->properties->admin,
 						'ne_type'            => isset( $vv->properties->type ) ? $vv->properties->type : $default_type,
 						'ne_properties'      => $vv->properties,
@@ -247,13 +251,14 @@ commented out because it's not really needed
 
 			foreach( $output_merged->features as $kk => $vv )
 			{
-				$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . ( ! empty( $vv->properties->name ) ? $vv->properties->name : $vv->properties->name_conve );
-	
+				$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . $feature_name;
+
 				$saved = $this->insert_geo( (object) array(
 					'bgeo_key' => md5( $bgeo_key ),
 					'bgeo_key_unencoded' => $bgeo_key,
 					'bgeo_geometry'      => $vv->geometry,
-					'ne_name'            => ( ! empty( $vv->properties->name ) ? $vv->properties->name : $vv->properties->name_conve ),
+					'bgeo_type'          => $default_type,
+					'ne_name'            => $feature_name,
 					'ne_admin'           => $vv->properties->admin,
 					'ne_type'            => isset( $vv->properties->type ) ? $vv->properties->type : $default_type,
 					'ne_properties'      => $vv->properties,
@@ -293,6 +298,32 @@ commented out because it's not really needed
 		);
 	}
 
+	function extract_name( $properties )
+	{
+		if ( isset( $properties->name ) && ! empty( $properties->name ) )
+		{
+			$name = $properties->name;
+		}
+
+		elseif ( isset( $properties->name_conve ) && ! empty( $properties->name_conve ) )
+		{
+			$name = $properties->name_conve;
+		}
+
+		elseif ( isset( $properties->name_conve ) && ! empty( $properties->name_conve ) )
+		{
+			$name = $properties->name_conve;
+		}
+
+		else
+		{
+			$name = 'no name found in properties';
+		}
+
+		return $name;
+
+	}
+
 	function insert_geo( $data )
 	{
 		global $wpdb;
@@ -313,9 +344,9 @@ commented out because it's not really needed
 				bgeo_key,
 				bgeo_key_unencoded,
 				bgeo_geometry,
+				bgeo_type,
 				ne_name,
 				ne_admin,
-				ne_type,
 				ne_properties,
 				y_name,
 				y_type,
@@ -343,9 +374,9 @@ commented out because it's not really needed
 				bgeo_key = VALUES( bgeo_key ),
 				bgeo_key_unencoded = VALUES( bgeo_key_unencoded ),
 				bgeo_geometry = VALUES( bgeo_geometry ),
+				bgeo_type = VALUES( bgeo_type ),
 				ne_name = VALUES( ne_name ),
 				ne_admin = VALUES( ne_admin ),
-				ne_type = VALUES( ne_type ),
 				ne_properties = VALUES( ne_properties ),
 				y_name = VALUES( y_name ),
 				y_type = VALUES( y_type ),
@@ -357,9 +388,9 @@ commented out because it's not really needed
 			$data->bgeo_key,
 			$data->bgeo_key_unencoded,
 			$bgeo_geometry->asText(),
+			$data->bgeo_type,
 			$data->ne_name,
 			$data->ne_admin,
-			$data->ne_type,
 			serialize( $data->ne_properties ),
 			$data->y_name,
 			$data->y_type,
@@ -480,28 +511,28 @@ $sources = array(
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'group_key' => 'region_wb',
-		'default_type' => 'region_0',
+		'default_type' => 'country-group',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'country-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => 'admin',
-		'default_type' => 'state_or_province',
+		'default_type' => 'state-or-province',
 		'out_path' => '/simplified-geos/states-and-provinces/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region' ),
-		'default_type' => 'region_1b',
+		'default_type' => 'state-and-province-group',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'group_key' => array( 'admin', 'region_big' ),
-		'default_type' => 'region_1a',
+		'default_type' => 'state-and-province-group-large',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups-large',
 	),
@@ -522,28 +553,28 @@ $sources = array(
 	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
 		'group_key' => 'unit_type',
-		'default_type' => 'park',
+		'default_type' => 'parks-or-protected-land',
 		'out_path' => '/simplified-geos/parks-and-protected-lands/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_marine_polys.geojson',
 		'group_key' => 'featurecla',
-		'default_type' => 'water_feature_0',
+		'default_type' => 'water-feature',
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_lakes.geojson',
 		'group_key' => 'featurecla',
-		'default_type' => 'water_feature_1',
+		'default_type' => 'lake',
 		'out_path' => '/simplified-geos/water-features/',
 		'merge' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
 		'group_key' => 'max_pop_al',
-		'default_type' => 'populated_place',
+		'default_type' => 'urban-area',
 		'out_path' => '/simplified-geos/urban-areas/',
 		'merge' => FALSE,
 	),
