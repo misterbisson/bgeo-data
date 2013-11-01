@@ -21,8 +21,9 @@ ini_set( 'memory_limit', '4G' );
 
 class bGeo_Data
 {
-	function get_and_split( $log_path, $src_path, $group_key, $default_type, $out_path, $merge = FALSE )
+	function get_and_split( $log_path, $src_path, $name_key, $group_key, $default_type, $out_path, $merge = FALSE )
 	{
+
 		// check for and attempt to create the output directory
 		if ( ! ( file_exists( $out_path ) && is_dir( $out_path ) ) )
 		{
@@ -203,9 +204,16 @@ commented out because it's not really needed
 				foreach( $v->features as $kk => $vv )
 				{
 
-					$feature_name = $this->extract_name( $vv->properties );
+					$name_key_string = is_array( $name_key ) ? implode( ',' , $name_key ) : $name_key;
+					$feature_name = is_array( $name_key ) ? implode( ', ' , array_intersect_key( (array) $vv->properties, array_flip( $name_key ) ) ) : $vv->properties->$name_key;
 
-					$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . $feature_name;
+					if ( ! $feature_name )
+					{
+						$error->unsaved++;
+						continue;
+					}
+
+					$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . $name_key_string . '=' . $feature_name;
 
 					$saved = $this->insert_geo( (object) array(
 						'bgeo_key'           => md5( $bgeo_key ),
@@ -228,7 +236,7 @@ commented out because it's not really needed
 					{
 						$error->unsaved++;
 					}
-					echo "\nSaved " . $out_path . $k . "\n\n";
+					echo "\nSaved " . $out_path .' '. $feature_name . "\n\n";
 				}
 
 				// explicitly clean up vars to save memory
@@ -251,7 +259,16 @@ commented out because it's not really needed
 
 			foreach( $output_merged->features as $kk => $vv )
 			{
-				$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . ( isset( $vv->properties->name_conve ) ? 'name_conve' : 'name' ) . '=' . $feature_name;
+				$name_key_string = is_array( $name_key ) ? implode( ',' , $name_key ) : $name_key;
+				$feature_name = is_array( $name_key ) ? implode( ', ' , array_intersect_key( (array) $vv->properties, array_flip( $name_key ) ) ) : $vv->properties->$name_key;
+
+				if ( ! $feature_name )
+				{
+					$error->unsaved++;
+					continue;
+				}
+
+				$bgeo_key = basename( $src_path ) . ' m=' . (int) $merge . ' ' . ( is_array( $group_key ) ? implode( ',' , $group_key ) : $group_key ) . '=' . $k . ' ' . $name_key_string . '=' . $feature_name;
 
 				$saved = $this->insert_geo( (object) array(
 					'bgeo_key' => md5( $bgeo_key ),
@@ -276,7 +293,7 @@ commented out because it's not really needed
 				$error->unsaved++;
 			}
 
-			echo "\nSaved " . $out_path . $merge . "\n\n";
+			echo "\nSaved " . $out_path .' '. $feature_name. "\n\n";
 		}
 
 		// explicitly clean up vars to save memory
@@ -296,32 +313,6 @@ commented out because it's not really needed
 			'components' => count( (array) $geometry->getComponents() ),
 			'area' => $geometry->area(),
 		);
-	}
-
-	function extract_name( $properties )
-	{
-		if ( isset( $properties->name ) && ! empty( $properties->name ) )
-		{
-			$name = $properties->name;
-		}
-
-		elseif ( isset( $properties->name_conve ) && ! empty( $properties->name_conve ) )
-		{
-			$name = $properties->name_conve;
-		}
-
-		elseif ( isset( $properties->name_conve ) && ! empty( $properties->name_conve ) )
-		{
-			$name = $properties->name_conve;
-		}
-
-		else
-		{
-			$name = 'no name found in properties';
-		}
-
-		return $name;
-
 	}
 
 	function insert_geo( $data )
@@ -503,6 +494,7 @@ $bgeo_data = new bGeo_Data();
 $sources = array(
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
+		'name_key' => 'admin',
 		'group_key' => 'continent',
 		'default_type' => 'country',
 		'out_path' => '/simplified-geos/countries/',
@@ -510,13 +502,15 @@ $sources = array(
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
+		'name_key' => 'region_wb',
 		'group_key' => 'region_wb',
-		'default_type' => 'country-group',
+		'default_type' => 'country-group-merged',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'country-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
+		'name_key' => 'name',
 		'group_key' => 'admin',
 		'default_type' => 'state-or-province',
 		'out_path' => '/simplified-geos/states-and-provinces/',
@@ -524,20 +518,23 @@ $sources = array(
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
+		'name_key' => array( 'admin', 'region' ),
 		'group_key' => array( 'admin', 'region' ),
-		'default_type' => 'state-and-province-group',
+		'default_type' => 'state-and-province-group-merged',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
+		'name_key' => array( 'admin', 'region_big' ),
 		'group_key' => array( 'admin', 'region_big' ),
-		'default_type' => 'state-and-province-group-large',
+		'default_type' => 'state-and-province-group-large-merged',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'state-and-province-groups-large',
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
+		'name_key' => 'name',
 		'group_key' => 'region',
 		'default_type' => 'region',
 		'out_path' => '/simplified-geos/regions/',
@@ -545,13 +542,23 @@ $sources = array(
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_regions_polys.geojson',
-		'group_key' => 'subregion',
-		'default_type' => 'subregion',
+		'name_key' => 'region',
+		'group_key' => 'region',
+		'default_type' => 'region-merged',
 		'out_path' => '/simplified-geos/regions/',
 		'merge' => 'regions',
 	),
 	(object) array(
+		'src_file' => 'ne_10m_geography_regions_polys.geojson',
+		'name_key' => 'subregion',
+		'group_key' => 'subregion',
+		'default_type' => 'subregion-merged',
+		'out_path' => '/simplified-geos/regions/',
+		'merge' => 'subregions',
+	),
+	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
+		'name_key' => 'unit_name',
 		'group_key' => 'unit_type',
 		'default_type' => 'parks-or-protected-land',
 		'out_path' => '/simplified-geos/parks-and-protected-lands/',
@@ -559,6 +566,7 @@ $sources = array(
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_marine_polys.geojson',
+		'name_key' => 'name',
 		'group_key' => 'featurecla',
 		'default_type' => 'water-feature',
 		'out_path' => '/simplified-geos/water-features/',
@@ -566,6 +574,7 @@ $sources = array(
 	),
 	(object) array(
 		'src_file' => 'ne_10m_lakes.geojson',
+		'name_key' => 'name',
 		'group_key' => 'featurecla',
 		'default_type' => 'lake',
 		'out_path' => '/simplified-geos/water-features/',
@@ -573,6 +582,7 @@ $sources = array(
 	),
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
+		'name_key' => 'name_conve',
 		'group_key' => 'max_pop_al',
 		'default_type' => 'urban-area',
 		'out_path' => '/simplified-geos/urban-areas/',
@@ -581,6 +591,7 @@ $sources = array(
 /*
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan_truncated.geojson',
+		'name_key' => 'name',
 		'group_key' => 'max_pop_al',
 		'default_type' => 'populated_place',
 		'out_path' => '/simplified-geos/urban-areas-test/',
@@ -592,5 +603,5 @@ $sources = array(
 
 foreach ( $sources as $source )
 {
-	print_r( $bgeo_data->get_and_split( __DIR__ . '/logs/', __DIR__ . '/naturalearthdata/' . $source->src_file, $source->group_key, $source->default_type, __DIR__ . $source->out_path, $source->merge ) );
+	print_r( $bgeo_data->get_and_split( __DIR__ . '/logs/', __DIR__ . '/naturalearthdata/' . $source->src_file, $source->name_key, $source->group_key, $source->default_type, __DIR__ . $source->out_path, $source->merge ) );
 }
