@@ -1,7 +1,7 @@
 <?php
 
 define( 'WP_INSTALLING', TRUE );
-$_SERVER['HTTP_HOST'] = 'maisonbisson.com';
+$_SERVER['HTTP_HOST'] = 'bgeo.me';
 
 require_once( dirname( dirname( dirname( __DIR__ ) ) ) . '/wp-load.php' );
 
@@ -19,7 +19,7 @@ if( function_exists( 'batcache_cancel' ) )
 
 ini_set( 'memory_limit', '4G' );
 
-class bGeo_Data
+class bGeo_Data_Simplify
 {
 	function get_and_split( $log_path, $src_path, $name_key, $group_key, $default_type, $out_path, $merge = FALSE )
 	{
@@ -489,7 +489,7 @@ commented out because it's not really needed
 	} // END new_geometry
 }
 
-$bgeo_data = new bGeo_Data();
+$bgeo_data = new bGeo_Data_Simplify();
 
 $sources = array(
 	(object) array(
