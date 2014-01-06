@@ -47,13 +47,21 @@ class bGeo_Data_Correlate
 
 	public function enrich( $row )
 	{
-
-
 		$bgeo_geometry = $this->new_geometry( $row->bgeo_geometry, 'wkt' );
 		$centroid = $bgeo_geometry->centroid();
 
-		$api_response = bgeo()->yboss()->placefinder( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $centroid->y() . ' ' . $centroid->x() );
-		
+		// don't re-check the Y! api if we already have data
+		if (
+			( ! $api_response = unserialize( $row->y_response ) ) ||
+			! is_array( $api_response ) ||
+			! count( $api_response )
+		)
+		{
+			$api_response = bgeo()->yboss()->placefinder( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $centroid->y() . ' ' . $centroid->x() );
+		}
+
+		$y_centroid = $this->new_geometry( 'POINT (' . $api_response[0]->latitude . ' ' . $api_response[0]->longitude . ')', 'wkt' );
+
 		$nameish = array_filter( array_intersect_key( (array) $api_response[0], $this->hierarchy ) );
 
 		$insert = (object) array(
@@ -61,7 +69,8 @@ class bGeo_Data_Correlate
 			'y_name' => reset( $nameish ),
 			'y_type' => $api_response[0]->woetype,
 			'y_woeid' => $api_response[0]->woeid,
-			'y_parent_woeid' => 0,
+			'y_confidence' => $api_response[0]->quality,
+			'y_distance' => $centroid->distance( $y_centroid ),
 			'y_response' => serialize( $api_response ),
 			'wikipedia_uri' => '',		
 		);
@@ -107,8 +116,8 @@ print_r( $insert );
 				y_name = VALUES( y_name ),
 				y_type = VALUES( y_type ),
 				y_woeid = VALUES( y_woeid ),
-				y_parent_woeid = VALUES( y_confidence ),
-				y_parent_woeid = VALUES( y_distance ),
+				y_confidence = VALUES( y_confidence ),
+				y_distance = VALUES( y_distance ),
 				y_response = VALUES( y_response ),
 				wikipedia_uri = VALUES( wikipedia_uri )
 			',
