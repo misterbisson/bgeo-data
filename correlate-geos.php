@@ -38,7 +38,6 @@ class bGeo_Data_Correlate
 			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
 			FROM bgeo_data
 			WHERE 1=1
-			AND bgeo_type <> "state-or-province"
 			AND y_response = ""
 			LIMIT 1
 		');
@@ -88,7 +87,8 @@ print_r( $insert );
 				y_name,
 				y_type,
 				y_woeid,
-				y_parent_woeid,
+				y_confidence,
+				y_distance,
 				y_response,
 				wikipedia_uri
 			)
@@ -100,13 +100,15 @@ print_r( $insert );
 				\'%5$s\',
 				\'%6$s\',
 				\'%7$s\'
+				\'%8$s\'
 			)
 			ON DUPLICATE KEY UPDATE
 				bgeo_key = VALUES( bgeo_key ),
 				y_name = VALUES( y_name ),
 				y_type = VALUES( y_type ),
 				y_woeid = VALUES( y_woeid ),
-				y_parent_woeid = VALUES( y_parent_woeid ),
+				y_parent_woeid = VALUES( y_confidence ),
+				y_parent_woeid = VALUES( y_distance ),
 				y_response = VALUES( y_response ),
 				wikipedia_uri = VALUES( wikipedia_uri )
 			',
@@ -114,7 +116,8 @@ print_r( $insert );
 			$data->y_name,
 			$data->y_type,
 			$data->y_woeid,
-			$data->y_parent_woeid,
+			$data->y_confidence,
+			$data->y_distance,
 			$data->y_response,
 			$data->wikipedia_uri
 		);

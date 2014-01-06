@@ -224,11 +224,6 @@ commented out because it's not really needed
 						'ne_admin'           => $vv->properties->admin,
 						'ne_type'            => isset( $vv->properties->type ) ? $vv->properties->type : $default_type,
 						'ne_properties'      => $vv->properties,
-						'y_name'             => '',
-						'y_type'             => '',
-						'y_woeid'            => '',
-						'y_parent_woeid'     => '',
-						'y_response'         => '',
 						'wikipedia_uri'      => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
 					) );
 
@@ -279,11 +274,6 @@ commented out because it's not really needed
 					'ne_admin'           => $vv->properties->admin,
 					'ne_type'            => isset( $vv->properties->type ) ? $vv->properties->type : $default_type,
 					'ne_properties'      => $vv->properties,
-					'y_name'             => '',
-					'y_type'             => '',
-					'y_woeid'            => '',
-					'y_parent_woeid'     => '',
-					'y_response'         => '',
 					'wikipedia_uri'      => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
 				) );
 			}
@@ -339,11 +329,6 @@ commented out because it's not really needed
 				ne_name,
 				ne_admin,
 				ne_properties,
-				y_name,
-				y_type,
-				y_woeid,
-				y_parent_woeid,
-				y_response,
 				wikipedia_uri
 			)
 			VALUES(
@@ -355,11 +340,6 @@ commented out because it's not really needed
 				\'%6$s\',
 				\'%7$s\',
 				\'%8$s\',
-				\'%9$s\',
-				\'%10$s\',
-				\'%11$s\',
-				\'%12$s\',
-				\'%13$s\'
 			)
 			ON DUPLICATE KEY UPDATE
 				bgeo_key = VALUES( bgeo_key ),
@@ -369,11 +349,6 @@ commented out because it's not really needed
 				ne_name = VALUES( ne_name ),
 				ne_admin = VALUES( ne_admin ),
 				ne_properties = VALUES( ne_properties ),
-				y_name = VALUES( y_name ),
-				y_type = VALUES( y_type ),
-				y_woeid = VALUES( y_woeid ),
-				y_parent_woeid = VALUES( y_parent_woeid ),
-				y_response = VALUES( y_response ),
 				wikipedia_uri = VALUES( wikipedia_uri )
 			',
 			$data->bgeo_key,
@@ -383,11 +358,6 @@ commented out because it's not really needed
 			$data->ne_name,
 			$data->ne_admin,
 			serialize( $data->ne_properties ),
-			$data->y_name,
-			$data->y_type,
-			$data->y_woeid,
-			$data->y_parent_woeid,
-			$data->y_response,
 			$data->wikipedia_uri
 		);
 
