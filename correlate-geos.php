@@ -1,6 +1,7 @@
 <?php
 
-// use http://geojson.io to look at json objects
+// Convenient lat/lon getter: http://dbsgeo.com/latlon/
+// Use http://geojson.io to look at json objects
 
 //define( 'WP_INSTALLING', TRUE );
 $_SERVER['HTTP_HOST'] = 'bgeo.me';
@@ -91,7 +92,7 @@ class bGeo_Data_Correlate
 		$w_distance = 0;
 		if ( is_array( $w_response ) )
 		{
-			foreach ( $w_response as $w_page )
+			foreach ( array_slice( $w_response, 0, 1 ) as $w_page )
 			{
 				$w_distance = 0;
 
@@ -104,6 +105,7 @@ class bGeo_Data_Correlate
 				{
 					$w_name = $w_detail->title;
 					$w_uri = $w_detail->fullurl;
+					$w_distance = 3;
 					break;
 				}
 
@@ -239,5 +241,6 @@ $bgeo_data = new bGeo_Data_Correlate();
 while ( $row = $bgeo_data->get_row() )
 {
 	$bgeo_data->enrich( $row );
-	usleep( 1500 );
+//	usleep( 1500 );
+	sleep( 60 );
 }
