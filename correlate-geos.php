@@ -38,7 +38,8 @@ class bGeo_Data_Correlate
 			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
 			FROM bgeo_data
 			WHERE 1=1
-			AND y_response = ""
+			AND y_distance = 0
+			AND 5 < CHARACTER_LENGTH( y_response )
 			LIMIT 1
 		');
 
@@ -52,34 +53,55 @@ class bGeo_Data_Correlate
 
 		// don't re-check the Y! api if we already have data
 		if (
-			( ! $api_response = unserialize( $row->y_response ) ) ||
-			! is_array( $api_response ) ||
-			! count( $api_response )
+			( ! $y_response = unserialize( $row->y_response ) ) ||
+			! is_array( $y_response ) ||
+			! count( $y_response )
 		)
 		{
-			$api_response = bgeo()->yboss()->placefinder( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $centroid->y() . ' ' . $centroid->x() );
+			$y_response = bgeo()->yboss()->placefinder( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $centroid->y() . ' ' . $centroid->x() );
 		}
 
-		$y_centroid = $this->new_geometry( 'POINT (' . $api_response[0]->latitude . ' ' . $api_response[0]->longitude . ')', 'wkt' );
+		// is the Y! response inside the geometry from NE?
+		if ( isset( $y_response[0]->latitude, $y_response[0]->longitude ) )
+		{
+			$y_centroid = $this->new_geometry( 'POINT (' . $y_response[0]->longitude . ' ' . $y_response[0]->latitude . ')', 'wkt' );
+		}
 
-		$nameish = array_filter( array_intersect_key( (array) $api_response[0], $this->hierarchy ) );
+		// Y!'s name for this place?
+		$y_nameish = array_filter( array_intersect_key( (array) $y_response[0], $this->hierarchy ) );
+
+		// don't re-check the W api if we already have data
+		if (
+			( ! $w_response = unserialize( $row->w_response ) ) ||
+			! is_array( $w_response ) ||
+			! count( $w_response )
+		)
+		{
+			$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $row->ne_admin );
+		}
+
 
 		$insert = (object) array(
 			'bgeo_key' => $row->bgeo_key,
-			'y_name' => reset( $nameish ),
-			'y_type' => $api_response[0]->woetype,
-			'y_woeid' => $api_response[0]->woeid,
-			'y_confidence' => $api_response[0]->quality,
-			'y_distance' => $centroid->distance( $y_centroid ),
-			'y_response' => serialize( $api_response ),
-			'wikipedia_uri' => '',		
+			'y_name' => reset( $y_nameish ),
+			'y_type' => $y_response[0]->woetype,
+			'y_woeid' => $y_response[0]->woeid,
+			'y_confidence' => $y_response[0]->quality,
+			'y_distance' => (int) $bgeo_geometry->contains( $y_centroid ) + 1,
+			'y_response' => serialize( $y_response ),
+			'y_detail' => '',
+			'w_name' => '',
+			'w_uri' => '',
+			'w_distance' => '',
+			'w_response' => serialize( $w_response ),
+			'w_detail' => '',
 		);
 
 		$this->insert_meta( $insert );
 
 
 //print_r( $row );
-//print_r( $api_response );
+//print_r( $y_response );
 print_r( $insert );
 //die;
 		return;
@@ -99,7 +121,12 @@ print_r( $insert );
 				y_confidence,
 				y_distance,
 				y_response,
-				wikipedia_uri
+				y_detail,
+				w_name,
+				w_uri,
+				w_distance,
+				w_response,
+				w_detail
 			)
 			VALUES(
 				\'%1$s\',
@@ -108,8 +135,13 @@ print_r( $insert );
 				\'%4$s\',
 				\'%5$s\',
 				\'%6$s\',
-				\'%7$s\'
-				\'%8$s\'
+				\'%7$s\',
+				\'%8$s\',
+				\'%9$s\',
+				\'%10$s\',
+				\'%11$s\',
+				\'%12$s\',
+				\'%13$s\'
 			)
 			ON DUPLICATE KEY UPDATE
 				bgeo_key = VALUES( bgeo_key ),
@@ -119,7 +151,12 @@ print_r( $insert );
 				y_confidence = VALUES( y_confidence ),
 				y_distance = VALUES( y_distance ),
 				y_response = VALUES( y_response ),
-				wikipedia_uri = VALUES( wikipedia_uri )
+				y_detail = VALUES( y_detail ),
+				w_name = VALUES( w_name ),
+				w_uri = VALUES( w_uri ),
+				w_distance = VALUES( w_distance ),
+				w_response = VALUES( w_response ),
+				w_detail = VALUES( w_detail )
 			',
 			$data->bgeo_key,
 			$data->y_name,
@@ -128,7 +165,12 @@ print_r( $insert );
 			$data->y_confidence,
 			$data->y_distance,
 			$data->y_response,
-			$data->wikipedia_uri
+			$data->y_detail,
+			$data->w_name,
+			$data->w_uri,
+			$data->w_distance,
+			$data->w_response,
+			$data->w_detail
 		);
 
 		// execute the query

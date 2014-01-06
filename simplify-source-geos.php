@@ -224,7 +224,7 @@ commented out because it's not really needed
 						'ne_admin'           => $vv->properties->admin,
 						'ne_type'            => isset( $vv->properties->type ) ? $vv->properties->type : $default_type,
 						'ne_properties'      => $vv->properties,
-						'wikipedia_uri'      => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
+						'w_uri'              => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
 					) );
 
 					if ( ! $saved )
@@ -274,7 +274,7 @@ commented out because it's not really needed
 					'ne_admin'           => $vv->properties->admin,
 					'ne_type'            => isset( $vv->properties->type ) ? $vv->properties->type : $default_type,
 					'ne_properties'      => $vv->properties,
-					'wikipedia_uri'      => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
+					'w_uri'              => is_numeric( $vv->properties->wikipedia ) ? '' : $vv->properties->wikipedia,
 				) );
 			}
 
@@ -329,7 +329,7 @@ commented out because it's not really needed
 				ne_name,
 				ne_admin,
 				ne_properties,
-				wikipedia_uri
+				w_uri
 			)
 			VALUES(
 				\'%1$s\',
@@ -349,7 +349,7 @@ commented out because it's not really needed
 				ne_name = VALUES( ne_name ),
 				ne_admin = VALUES( ne_admin ),
 				ne_properties = VALUES( ne_properties ),
-				wikipedia_uri = VALUES( wikipedia_uri )
+				w_uri = VALUES( w_uri )
 			',
 			$data->bgeo_key,
 			$data->bgeo_key_unencoded,
@@ -358,7 +358,7 @@ commented out because it's not really needed
 			$data->ne_name,
 			$data->ne_admin,
 			serialize( $data->ne_properties ),
-			$data->wikipedia_uri
+			$data->w_uri
 		);
 
 		// execute the query
