@@ -94,6 +94,11 @@ class bGeo_Data_Correlate
 		{
 			foreach ( array_slice( $w_response, 0, 1 ) as $w_page )
 			{
+				if ( empty( $w_page ) )
+				{
+					continue;
+				}
+
 				$w_distance = 0;
 
 				$w_detail = scriblio_authority_bgeo()->wikipedia()->get( $w_page );
