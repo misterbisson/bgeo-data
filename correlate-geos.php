@@ -1,5 +1,7 @@
 <?php
 
+// use http://geojson.io to look at json objects
+
 //define( 'WP_INSTALLING', TRUE );
 $_SERVER['HTTP_HOST'] = 'bgeo.me';
 
@@ -38,10 +40,12 @@ class bGeo_Data_Correlate
 			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
 			FROM bgeo_data
 			WHERE 1=1
-			AND y_distance = 0
-			AND 5 < CHARACTER_LENGTH( y_response )
+			AND w_response = ""
 			LIMIT 1
 		');
+
+// 			AND y_distance = 0
+//			AND 5 < CHARACTER_LENGTH( y_response )
 
 		return $row;
 	}
@@ -49,6 +53,7 @@ class bGeo_Data_Correlate
 	public function enrich( $row )
 	{
 		$bgeo_geometry = $this->new_geometry( $row->bgeo_geometry, 'wkt' );
+		$bgeo_geometry_bigger = $bgeo_geometry->buffer( 1.05 );
 		$centroid = $bgeo_geometry->centroid();
 
 		// don't re-check the Y! api if we already have data
@@ -62,9 +67,11 @@ class bGeo_Data_Correlate
 		}
 
 		// is the Y! response inside the geometry from NE?
+		$y_distance = 0;
 		if ( isset( $y_response[0]->latitude, $y_response[0]->longitude ) )
 		{
 			$y_centroid = $this->new_geometry( 'POINT (' . $y_response[0]->longitude . ' ' . $y_response[0]->latitude . ')', 'wkt' );
+			$y_distance = (int) $bgeo_geometry_bigger->contains( $y_centroid ) + 1;
 		}
 
 		// Y!'s name for this place?
@@ -77,7 +84,43 @@ class bGeo_Data_Correlate
 			! count( $w_response )
 		)
 		{
-			$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $row->ne_admin );
+			$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ', ' . ( $row->ne_admin != $row->ne_name ? $row->ne_admin : '' ) );
+		}
+
+		$w_name = $w_uri = $w_detail = '';
+		$w_distance = 0;
+		if ( is_array( $w_response ) )
+		{
+			foreach ( $w_response as $w_page )
+			{
+				$w_distance = 0;
+
+				$w_detail = scriblio_authority_bgeo()->wikipedia()->get( $w_page );
+
+				if ( 
+					'country' == $row->bgeo_type &&
+					in_array( 'States and territories', $w_detail->parsedcategories )
+				)
+				{
+					$w_name = $w_detail->title;
+					$w_uri = $w_detail->fullurl;
+					break;
+				}
+
+				// is the W response inside the geometry from NE?
+				if ( isset( $w_detail->coordinates[0]->lat, $w_detail->coordinates[0]->lon ) )
+				{
+					$w_centroid = $this->new_geometry( 'POINT (' . $w_detail->coordinates[0]->lon . ' ' . $w_detail->coordinates[0]->lat . ')', 'wkt' );
+					$w_distance = (int) $bgeo_geometry_bigger->contains( $w_centroid ) + 1;
+
+					if ( 2 == $w_distance )
+					{
+						$w_name = $w_detail->title;
+						$w_uri = $w_detail->fullurl;
+						break;
+					}
+				}
+			}
 		}
 
 
@@ -87,14 +130,14 @@ class bGeo_Data_Correlate
 			'y_type' => $y_response[0]->woetype,
 			'y_woeid' => $y_response[0]->woeid,
 			'y_confidence' => $y_response[0]->quality,
-			'y_distance' => (int) $bgeo_geometry->contains( $y_centroid ) + 1,
+			'y_distance' => $y_distance,
 			'y_response' => serialize( $y_response ),
 			'y_detail' => '',
-			'w_name' => '',
-			'w_uri' => '',
-			'w_distance' => '',
+			'w_name' => $w_name,
+			'w_uri' => $w_uri,
+			'w_distance' => $w_distance,
 			'w_response' => serialize( $w_response ),
-			'w_detail' => '',
+			'w_detail' => ( empty( $w_detail ) ? '' : serialize( $w_detail ) ),
 		);
 
 		$this->insert_meta( $insert );
@@ -104,6 +147,7 @@ class bGeo_Data_Correlate
 //print_r( $y_response );
 print_r( $insert );
 //die;
+
 		return;
 	}
 
@@ -195,5 +239,5 @@ $bgeo_data = new bGeo_Data_Correlate();
 while ( $row = $bgeo_data->get_row() )
 {
 	$bgeo_data->enrich( $row );
-	usleep( 500 );
+	usleep( 1500 );
 }
