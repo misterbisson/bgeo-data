@@ -45,6 +45,16 @@ class bGeo_Data_Correlate
 			LIMIT 1
 		');
 
+/*
+		$row = $wpdb->get_row('
+			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
+			FROM bgeo_data
+			WHERE 1=1
+			AND bgeo_key = "865e0931b5cedbcd980ab2d311b4ae0f"
+			LIMIT 1
+		');
+*/
+
 // 			AND y_distance = 0
 //			AND 5 < CHARACTER_LENGTH( y_response )
 
@@ -67,6 +77,12 @@ class bGeo_Data_Correlate
 			$y_response = bgeo()->yboss()->placefinder( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $centroid->y() . ' ' . $centroid->x() );
 		}
 
+		// check for errors
+		if ( FALSE === $y_response )
+		{
+			print_r( bgeo()->yboss()->errors );
+		}
+
 		// is the Y! response inside the geometry from NE?
 		$y_distance = 0;
 		if ( isset( $y_response[0]->latitude, $y_response[0]->longitude ) )
@@ -85,33 +101,46 @@ class bGeo_Data_Correlate
 			! count( $w_response )
 		)
 		{
+
+			// try a query that looks like "Alberta, Canada" or similar
 			$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ', ' . ( $row->ne_admin != $row->ne_name ? $row->ne_admin : '' ) );
+
+			// if we didn't get a meaningful response to that, try again with just the first part of the query
+			if (
+				! count( $w_response ) &&
+				$row->ne_admin != $row->ne_name
+			)
+			{
+				$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) );
+			}
+
+		}
+
+		// check for errors
+		if ( FALSE === $w_response )
+		{
+			print_r( scriblio_authority_bgeo()->wikipedia()->errors );
 		}
 
 		$w_name = $w_uri = $w_detail = '';
 		$w_distance = 0;
 		if ( is_array( $w_response ) )
 		{
-			foreach ( array_slice( $w_response, 0, 1 ) as $w_page )
+			foreach ( $w_response as $w_page )
 			{
 				if ( empty( $w_page ) )
 				{
 					continue;
 				}
 
-				$w_distance = 0;
-
-				$w_detail = scriblio_authority_bgeo()->wikipedia()->get( $w_page );
-
+				// don't re-check the W detail if we already have data
 				if ( 
-					'country' == $row->bgeo_type &&
-					in_array( 'States and territories', $w_detail->parsedcategories )
+					( ! $w_detail = unserialize( $row->w_detail ) ) ||
+					! isset( $w_detail->title ) ||
+					$w_detail->title != $w_page
 				)
 				{
-					$w_name = $w_detail->title;
-					$w_uri = $w_detail->fullurl;
-					$w_distance = 3;
-					break;
+					$w_detail = scriblio_authority_bgeo()->wikipedia()->get( $w_page );
 				}
 
 				// is the W response inside the geometry from NE?
@@ -127,6 +156,32 @@ class bGeo_Data_Correlate
 						break;
 					}
 				}
+
+
+
+				// does this appear to a W article about a country, and is this a country record we're looking for?
+				// ...because country articles don't typically have geo coordinates associated with them
+				if (
+					in_array( $row->bgeo_type, array(
+						'country',
+						'country-group-merged',
+					) ) &&
+					array_intersect( array( 
+						'Countries',
+						'Geography',
+						'States and territories',
+					), $w_detail->parsedcategories )
+				)
+				{
+					$w_name = $w_detail->title;
+					$w_uri = $w_detail->fullurl;
+					$w_distance = 3;
+					break;
+				}
+
+				// we didn't find a good match, so reset our buckets
+				$w_name = $w_uri = $w_detail = '';
+				$w_distance = 0;
 			}
 		}
 
