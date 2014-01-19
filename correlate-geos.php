@@ -41,7 +41,8 @@ class bGeo_Data_Correlate
 			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
 			FROM bgeo_data
 			WHERE 1=1
-			AND w_response = ""
+			AND bgeo_iterator = 0
+			AND y_distance < 2
 			LIMIT 1
 		');
 
@@ -50,7 +51,7 @@ class bGeo_Data_Correlate
 			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
 			FROM bgeo_data
 			WHERE 1=1
-			AND bgeo_key = "865e0931b5cedbcd980ab2d311b4ae0f"
+			AND bgeo_key = "bae01c88f6b1172c9208ee3df4ac5e4d"
 			LIMIT 1
 		');
 */
@@ -83,16 +84,40 @@ class bGeo_Data_Correlate
 			print_r( bgeo()->yboss()->errors );
 		}
 
-		// is the Y! response inside the geometry from NE?
+		$y_confidence = $y_detail = $y_name = $y_type = $y_woeid = '';
 		$y_distance = 0;
-		if ( isset( $y_response[0]->latitude, $y_response[0]->longitude ) )
+		if ( is_array( $y_response ) )
 		{
-			$y_centroid = $this->new_geometry( 'POINT (' . $y_response[0]->longitude . ' ' . $y_response[0]->latitude . ')', 'wkt' );
-			$y_distance = (int) $bgeo_geometry_bigger->contains( $y_centroid ) + 1;
+			foreach ( $y_response as $y_item )
+			{
+				if ( empty( $y_item ) )
+				{
+					continue;
+				}
+
+				// is the Y response inside the geometry from NE?
+				if ( isset( $y_item->latitude, $y_item->longitude ) )
+				{
+					$y_centroid = $this->new_geometry( 'POINT (' . $y_item->longitude . ' ' . $y_item->latitude . ')', 'wkt' );
+					$y_distance = (int) $bgeo_geometry_bigger->contains( $y_centroid ) + 1;
+
+					if ( 2 == $y_distance )
+					{
+						$y_confidence = $y_item->quality;
+						$y_nameish = array_filter( array_intersect_key( (array) $y_item, $this->hierarchy ) ); // Y!'s name for this place?
+						$y_type = $y_item->woetype;
+						$y_woeid = $y_item->woeid;
+						break;
+					}
+				}
+
+				// we didn't find a good match, so reset our buckets
+				$y_confidence = $y_detail = $y_name = $y_type = $y_woeid = '';
+				$y_distance = 0;
+			}
 		}
 
-		// Y!'s name for this place?
-		$y_nameish = array_filter( array_intersect_key( (array) $y_response[0], $this->hierarchy ) );
+
 
 		// don't re-check the W api if we already have data
 		if (
@@ -114,6 +139,17 @@ class bGeo_Data_Correlate
 				$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) );
 			}
 
+		}
+		elseif (
+			1 < $row->w_distance && // we have a matched distance
+			isset( $row->w_detail ) && // we have a detail page
+			( $w_detail = unserialize( $row->w_detail ) ) && // the detail page unserializes
+			! array_search( $w_detail->encodedtitle, $w_response ) // the detail page is not the first item in the W search result
+		)
+		{
+			// insert the matched W result as the top item in the the search result
+			// this saves going through the unmatched results when repeating the process
+			array_unshift( $w_response, $w_detail->encodedtitle );
 		}
 
 		// check for errors
@@ -157,8 +193,6 @@ class bGeo_Data_Correlate
 					}
 				}
 
-
-
 				// does this appear to a W article about a country, and is this a country record we're looking for?
 				// ...because country articles don't typically have geo coordinates associated with them
 				if (
@@ -186,12 +220,14 @@ class bGeo_Data_Correlate
 		}
 
 
+
 		$insert = (object) array(
 			'bgeo_key' => $row->bgeo_key,
+			'bgeo_iterator' => 1,
 			'y_name' => reset( $y_nameish ),
-			'y_type' => $y_response[0]->woetype,
-			'y_woeid' => $y_response[0]->woeid,
-			'y_confidence' => $y_response[0]->quality,
+			'y_type' => $y_type,
+			'y_woeid' => $y_woeid,
+			'y_confidence' => $y_confidence,
 			'y_distance' => $y_distance,
 			'y_response' => serialize( $y_response ),
 			'y_detail' => '',
@@ -221,6 +257,7 @@ print_r( $insert );
 			'INSERT INTO bgeo_data
 			(
 				bgeo_key,
+				bgeo_iterator,
 				y_name,
 				y_type,
 				y_woeid,
@@ -247,10 +284,12 @@ print_r( $insert );
 				\'%10$s\',
 				\'%11$s\',
 				\'%12$s\',
-				\'%13$s\'
+				\'%13$s\',
+				\'%14$s\'
 			)
 			ON DUPLICATE KEY UPDATE
 				bgeo_key = VALUES( bgeo_key ),
+				bgeo_iterator = VALUES( bgeo_iterator ),
 				y_name = VALUES( y_name ),
 				y_type = VALUES( y_type ),
 				y_woeid = VALUES( y_woeid ),
@@ -265,6 +304,7 @@ print_r( $insert );
 				w_detail = VALUES( w_detail )
 			',
 			$data->bgeo_key,
+			$data->bgeo_iterator,
 			$data->y_name,
 			$data->y_type,
 			$data->y_woeid,
@@ -302,5 +342,5 @@ while ( $row = $bgeo_data->get_row() )
 {
 	$bgeo_data->enrich( $row );
 //	usleep( 1500 );
-	sleep( 60 );
+	sleep( 3 );
 }
