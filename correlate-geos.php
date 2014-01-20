@@ -41,8 +41,8 @@ class bGeo_Data_Correlate
 			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
 			FROM bgeo_data
 			WHERE 1=1
-			AND bgeo_iterator = 0
-			AND y_distance < 2
+			AND bgeo_iterator < 2
+			AND w_distance < 2
 			LIMIT 1
 		');
 
@@ -51,7 +51,7 @@ class bGeo_Data_Correlate
 			SELECT *, ASTEXT(bgeo_geometry) AS bgeo_geometry
 			FROM bgeo_data
 			WHERE 1=1
-			AND bgeo_key = "bae01c88f6b1172c9208ee3df4ac5e4d"
+			AND bgeo_key = "3cd78da24c24a6676b6723bb8a9b2108"
 			LIMIT 1
 		');
 */
@@ -64,8 +64,10 @@ class bGeo_Data_Correlate
 
 	public function enrich( $row )
 	{
+
 		$bgeo_geometry = $this->new_geometry( $row->bgeo_geometry, 'wkt' );
-		$bgeo_geometry_bigger = $bgeo_geometry->buffer( 1.05 );
+//		$bgeo_geometry_bigger = $bgeo_geometry->buffer( 1.05 );
+		$bgeo_geometry_bigger = $bgeo_geometry->buffer( 1.5 );
 		$centroid = $bgeo_geometry->centroid();
 
 		// don't re-check the Y! api if we already have data
@@ -75,7 +77,16 @@ class bGeo_Data_Correlate
 			! count( $y_response )
 		)
 		{
-			$y_response = bgeo()->yboss()->placefinder( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $centroid->y() . ' ' . $centroid->x() );
+			if ( 2 == $row->w_distance )
+			{
+				$search_name = $row->w_name . ' ' . $centroid->y() . ' ' . $centroid->x();
+			}
+			else
+			{
+				$search_name = preg_replace( '/[0-9]*/', '', $row->ne_name ) . ' ' . $centroid->y() . ' ' . $centroid->x();
+			}
+
+			$y_response = bgeo()->yboss()->placefinder( $search_name );
 		}
 
 		// check for errors
@@ -126,9 +137,10 @@ class bGeo_Data_Correlate
 			! count( $w_response )
 		)
 		{
-
 			// try a query that looks like "Alberta, Canada" or similar
-			$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ', ' . ( $row->ne_admin != $row->ne_name ? $row->ne_admin : '' ) );
+//			$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ', ' . ( $row->ne_admin != $row->ne_name ? $row->ne_admin : '' ) );
+
+			$w_response = $this->webserch_wikipedia( preg_replace( '/[0-9]*/', '', $row->ne_name ) . ', ' . ( $row->ne_admin != $row->ne_name ? $row->ne_admin : '' ) );
 
 			// if we didn't get a meaningful response to that, try again with just the first part of the query
 			if (
@@ -136,7 +148,8 @@ class bGeo_Data_Correlate
 				$row->ne_admin != $row->ne_name
 			)
 			{
-				$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) );
+//				$w_response = scriblio_authority_bgeo()->wikipedia()->search( preg_replace( '/[0-9]*/', '', $row->ne_name ) );
+				$w_response = $this->webserch_wikipedia( preg_replace( '/[0-9]*/', '', $row->ne_name ) );
 			}
 
 		}
@@ -223,7 +236,7 @@ class bGeo_Data_Correlate
 
 		$insert = (object) array(
 			'bgeo_key' => $row->bgeo_key,
-			'bgeo_iterator' => 1,
+			'bgeo_iterator' => 2,
 			'y_name' => reset( $y_nameish ),
 			'y_type' => $y_type,
 			'y_woeid' => $y_woeid,
@@ -240,13 +253,46 @@ class bGeo_Data_Correlate
 
 		$this->insert_meta( $insert );
 
-
+//echo $bgeo_geometry_bigger->out( 'json' ) . "\n\n";
+//echo $y_centroid->out( 'json' ) . "\n\n";
+//echo $w_centroid->out( 'json' ) . "\n\n";
 //print_r( $row );
 //print_r( $y_response );
 print_r( $insert );
 //die;
 
 		return;
+	}
+
+	public function webserch_wikipedia( $name )
+	{
+		$results = bgeo()->yboss()->boss( array( 'q' => $name ), 'limitedweb' );
+
+		if ( ! $results )
+		{
+			print_r( bgeo()->yboss()->errors );
+			return array();
+		}
+
+		$output = array();
+		foreach ( $results as $result )
+		{
+			// only look at wikipedia URLs
+			if ( ! preg_match( '#^http://en.wikipedia.org/wiki/#', $result->url ) )
+			{
+				continue;
+			}
+
+				$result->url = urldecode( $result->url );
+			
+				$result->url = preg_replace( '#http://en.wikipedia.org/wiki/#', '', $result->url );
+				$result->url = preg_replace( '#.*\:#', '', $result->url );
+				$result->url = preg_replace( '#\?.*#', '', $result->url );
+			
+				$output[] = $result->url;
+		}
+
+		return $output;
 	}
 
 	public function insert_meta( $data )
@@ -342,5 +388,5 @@ while ( $row = $bgeo_data->get_row() )
 {
 	$bgeo_data->enrich( $row );
 //	usleep( 1500 );
-	sleep( 3 );
+	sleep( 37 );
 }
