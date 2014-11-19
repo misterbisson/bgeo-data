@@ -137,10 +137,6 @@ class bGeo_Data_SimplifyCorrelate
 		}
 		elseif ( ! $recursion )
 		{
-
-var_dump( $location->api_raw->placeTypeName->code );
-
-
 			echo "\nWOEID type is NOT valid ( {$location->api_raw->placeTypeName->code} ), recursing into belontos";
 			foreach ( $location->belongtos as $belongto )
 			{
