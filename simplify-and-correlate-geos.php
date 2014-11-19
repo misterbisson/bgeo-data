@@ -19,7 +19,7 @@ if( function_exists( 'batcache_cancel' ) )
 
 ini_set( 'memory_limit', '4G' );
 
-class bGeo_Data_Simplify
+class bGeo_Data_SimplifyCorrelate
 {
 	function get_and_split( $src_path, $name_keys, $woe_types )
 	{
@@ -380,7 +380,7 @@ var_dump( $location->api_raw->placeTypeName->code );
 	} // END new_geometry
 }
 
-$bgeo_data = new bGeo_Data_Simplify();
+$bgeo_data = new bGeo_Data_SimplifyCorrelate();
 
 $sources = array(
 /*
