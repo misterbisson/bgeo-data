@@ -374,14 +374,19 @@ class bGeo_Data_SimplifyCorrelate
 
 	public function log( $data )
 	{
+		// get the file handle on the first run
 		if ( ! $this->log_handle )
 		{
 			if ( ! $this->log_handle = $this->log_handle() )
 			{
 				return FALSE;
 			}
+
+			// insert the array keys as column headers in the CSV, just on the first pass
+			fputcsv( $this->log_handle, array_keys( $data ) );
 		}
 
+		// it's up to the caller to make sure the number and order of array keys is consistent
 		fputcsv( $this->log_handle, $data );
 	}
 
