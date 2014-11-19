@@ -137,7 +137,7 @@ class bGeo_Data_SimplifyCorrelate
 		}
 		elseif ( ! $recursion )
 		{
-			echo "\nWOEID type is NOT valid ( {$location->api_raw->placeTypeName->code} ), recursing into belontos";
+			echo "\nWOEID type is NOT valid ( {$location->api_raw->placeTypeName->code} ), recursing into belongtos";
 			foreach ( $location->belongtos as $belongto )
 			{
 				if ( 'woeid' != $belongto->api )
@@ -193,20 +193,22 @@ class bGeo_Data_SimplifyCorrelate
 		// check for an existing record for this WOEID
 		$existing = $this->get_row( $location->api_id );
 
-		// insert if this is the first try at this WOEID
 		if ( ! $existing )
 		{
+			// insert if this is the first try at this WOEID
 			echo "\ninserting new row";
-			return $this->insert_row( $data );
+			$this->insert_row( $data );
 		}
-
-		// we've been here before, merge the parts and update
-		$existing->bgeo_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
-		$existing->woe_belongtos = array_unique( array_filter( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) ) );
-		$existing->bgeo_parts[ $parts_key ] = $data->bgeo_parts[ $parts_key ];
-
-		echo "\nupdating existing row";
-		$this->insert_row( $existing );
+		else
+		{
+			// we've been here before, merge the parts and update
+			$existing->bgeo_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
+			$existing->woe_belongtos = array_unique( array_filter( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) ) );
+			$existing->bgeo_parts[ $parts_key ] = $data->bgeo_parts[ $parts_key ];
+	
+			echo "\nupdating existing row";
+			$this->insert_row( $existing );
+		}
 
 		if ( ! $recursion )
 		{
@@ -217,6 +219,7 @@ class bGeo_Data_SimplifyCorrelate
 			}
 		}
 
+		// @TODO how to communicate success or failure back, maybe?
 		return TRUE;
 	}
 

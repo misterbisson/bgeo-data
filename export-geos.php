@@ -57,7 +57,7 @@ class bGeo_Data_Export
 				'name' => $geo->woe_raw->name,
 				'woeid' => $geo->woe_raw->woeid,
 			),
-			'geometry' => json_decode( $geo->bgeo_geometry->out( 'json' ) ),
+			'geometry' => json_decode( $this->simplify( $geo->bgeo_geometry )->out( 'json' ) ),
 		);
 
 		echo "\nExporting $out_file";
@@ -116,6 +116,75 @@ class bGeo_Data_Export
 			),
 			json_encode( $src )
 		);
+	}
+
+	function simplify( $geometry )
+	{
+		// merge multipolygons into a single polygon, if possible
+		if ( 'MultiPolygon' == $geometry->geometryType() )
+		{
+			$geometry = $this->merge_into_one( $geometry );
+			$geometry = $this->_simplify( $geometry );
+		}
+
+		return $geometry;
+	}
+
+	function _simplify( $geometry )
+	{
+		// get the original area for comparison later
+		$orig_area = $geometry->envelope()->area();
+
+		echo "\nsimp orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area";
+
+		$buffer_factor = 1.09;
+		$buffer_buffer_factor = 0.020;
+		$simplify_factor = 0.050;
+		$iteration = 1;
+
+		do
+		{
+			echo "\nsimp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )";
+
+			$simple_geometry = clone $geometry;
+			$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
+			$simple_area = $simple_geometry->envelope()->area();
+
+			// $buffer_factor += 0.01;
+			$buffer_buffer_factor += 0.01;
+			$simplify_factor -= 0.002;
+			$iteration += 1;
+		}
+		while ( $orig_area > $simple_area );
+
+		echo "\nsimp simp: " . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->envelope()->area() . " area";
+
+		return $simple_geometry;
+	}
+	function merge_into_one( $geometry )
+	{
+		echo "\nmerge orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area";
+
+		// break the geometry into sub-components
+		$parts = $geometry->getComponents();
+
+		// sanity check
+		if ( ! is_array( $parts ) )
+		{
+			return $geometry;
+		}
+
+		// merge the parts into a single whole
+		$whole = $parts[0];
+		unset( $parts[0] );
+		foreach ( $parts as $k => $part )
+		{
+			$whole = $whole->union( $part );
+			echo "\nmerge step " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area";
+		}
+
+		// return the merged result
+		return $whole;
 	}
 
 	function new_geometry( $input, $adapter )
