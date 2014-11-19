@@ -26,13 +26,18 @@ class bGeo_Data_Export
 		$out_file = $out_path;
 		if ( isset( $geo->woe_raw->country->content ) )
 		{
-			$out_file .= '/' . $geo->woe_raw->country->content;
+			$out_file .= '/Countries/' . $geo->woe_raw->country->content;
+
+			if ( isset( $geo->woe_raw->admin1->content ) )
+			{
+				$out_file .= '/' . $geo->woe_raw->admin1->content;
+			}
 		}
-		if ( isset( $geo->woe_raw->admin1->content ) )
+		else
 		{
-			$out_file .= '/' . $geo->woe_raw->admin1->content;
+			$out_file .= '/' . $geo->woe_raw->placeTypeName->content;
 		}
-		$out_file .= '/' . $geo->woe_raw->placeTypeName->content . '/' . $geo->woe_raw->woeid . '-' . $geo->woe_raw->name . '.geojson';
+		$out_file .= '/' . $geo->woe_raw->woeid . '-' . $geo->woe_raw->name . '.geojson';
 		$out_path = dirname( $out_file );
 
 		// check for and attempt to create the output directory
