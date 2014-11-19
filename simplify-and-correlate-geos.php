@@ -22,10 +22,13 @@ ini_set( 'memory_limit', '4G' );
 class bGeo_Data_SimplifyCorrelate
 {
 	public $out_path = NULL;
+	public $log_path = NULL;
+	public $log_handle = NULL;
 
-	public function __construct( $out_path )
+	public function __construct( $out_path, $log_path )
 	{
 		$this->out_path = $out_path;
+		$this->log_path = $log_path;
 	}
 
 	public function simplify_and_correlate( $src_path, $name_keys, $woe_types )
@@ -107,6 +110,11 @@ class bGeo_Data_SimplifyCorrelate
 
 			if ( ! $match )
 			{
+				$this->log( array(
+					'source' => basename( $src_path ),
+					'error' => 'no match',
+					'item' => $search_name,
+				) );
 				$error->unmatched++;
 				$error->unmatched_list[] = $search_name;
 			}
@@ -122,7 +130,6 @@ class bGeo_Data_SimplifyCorrelate
 
 	public function match( $location, $feature, $woe_types, $recursion = FALSE )
 	{
-
 		if (
 			! is_object( $location ) ||
 			is_wp_error( $location )
@@ -365,6 +372,43 @@ class bGeo_Data_SimplifyCorrelate
 		file_put_contents( $out_file, $this->json_encode( $output ) );
 	}
 
+	public function log( $data )
+	{
+		if ( ! $this->log_handle )
+		{
+			if ( ! $this->log_handle = $this->log_handle() )
+			{
+				return FALSE;
+			}
+		}
+
+		fputcsv( $this->log_handle, $data );
+	}
+
+	public function log_handle()
+	{
+		// check for and attempt to create the log directory
+		if ( ! ( file_exists( $this->log_path ) && is_dir( $this->log_path ) ) )
+		{
+			if ( ! mkdir( $this->log_path, 0755, TRUE ) )
+			{
+				echo "\nCan't create log file directory";
+				return FALSE;
+			}
+		}
+
+		// start the log csv file
+		$log_file = $this->log_path . '/' . date( DATE_ATOM ) . '.csv';
+		$log_handle = fopen( $log_file, 'w' );
+		if ( ! $log_handle )
+		{
+			echo "\nCan't create log file directory";
+			return FALSE;
+		}
+
+		return $log_handle;
+	}
+
 	public function json_encode( $src )
 	{
 		return str_ireplace(
@@ -507,6 +551,12 @@ $sources = array(
 		'constrain' => FALSE,
 	),
 	(object) array(
+		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
+		'name_keys' => array( 'name_conve' ),
+		'woe_types' => array( 7 ),
+		'constrain' => TRUE,
+	),
+	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
 		'name_keys' => array( 'unit_name', 'unit_type' ),
 		'name_keys' => 'unit_name',
@@ -518,18 +568,12 @@ $sources = array(
 		'woe_types' => array( 15, 37, 38 ),
 		'constrain' => FALSE,
 	),
+/*
 	(object) array(
 		'src_file' => 'ne_10m_lakes.geojson',
 		'name_keys' => array( 'name', 'featurecla', 'name_alt' ),
 		'woe_types' => array( 15, 37, 38 ),
 	),
-	(object) array(
-		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
-		'name_keys' => array( 'name_conve' ),
-		'woe_types' => array( 7 ),
-		'constrain' => TRUE,
-	),
-/*
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan_truncated.geojson',
 		'name_keys' => array( 'name_conve' ),
@@ -539,7 +583,7 @@ $sources = array(
 */
 );
 
-$bgeo_data = new bGeo_Data_SimplifyCorrelate( __DIR__ . '/correlated-geos' );
+$bgeo_data = new bGeo_Data_SimplifyCorrelate( __DIR__ . '/correlated-geos', __DIR__ . '/logs' );
 foreach ( $sources as $source )
 {
 	print_r( $bgeo_data->simplify_and_correlate( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->name_keys, $source->woe_types ) );
