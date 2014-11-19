@@ -57,7 +57,7 @@ class bGeo_Data_Export
 				'name' => $geo->woe_raw->name,
 				'woeid' => $geo->woe_raw->woeid,
 			),
-			'geometry' => json_decode( $this->simplify( $geo->bgeo_geometry )->out( 'json' ) ),
+			'geometry' => json_decode( $this->maybe_simplify( $geo->bgeo_geometry )->out( 'json' ) ),
 		);
 
 		echo "\nExporting $out_file";
@@ -118,19 +118,19 @@ class bGeo_Data_Export
 		);
 	}
 
-	function simplify( $geometry )
+	function maybe_simplify( $geometry )
 	{
 		// merge multipolygons into a single polygon, if possible
 		if ( 'MultiPolygon' == $geometry->geometryType() )
 		{
 			$geometry = $this->merge_into_one( $geometry );
-			$geometry = $this->_simplify( $geometry );
+			$geometry = $this->simplify( $geometry );
 		}
 
 		return $geometry;
 	}
 
-	function _simplify( $geometry )
+	function simplify( $geometry )
 	{
 		// get the original area for comparison later
 		$orig_area = $geometry->envelope()->area();

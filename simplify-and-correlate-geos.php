@@ -21,7 +21,14 @@ ini_set( 'memory_limit', '4G' );
 
 class bGeo_Data_SimplifyCorrelate
 {
-	function get_and_split( $src_path, $name_keys, $woe_types )
+	public $out_path = NULL;
+
+	public function __construct( $out_path )
+	{
+		$this->out_path = $out_path;
+	}
+
+	public function simplify_and_correlate( $src_path, $name_keys, $woe_types )
 	{
 		$error = (object) array(
 			'matched' => 0,
@@ -77,7 +84,11 @@ class bGeo_Data_SimplifyCorrelate
 						$error->matched++;
 
 						//insert this geo via some other function
-						if ( ! $this->insert_or_merge_geo( $location, $feature ) )
+						if ( ! $this->insert_or_merge_geo(
+							$location,
+							$feature,
+							$this->simplify( $this->new_geometry( $feature, 'json' ) )
+						) )
 						{
 							$error->notinserted++;
 							$error->notinserted_list[] = $search_name;
@@ -109,7 +120,7 @@ class bGeo_Data_SimplifyCorrelate
 		return $error;
 	}
 
-	function match( $location, $feature, $woe_types, $recursion = FALSE )
+	public function match( $location, $feature, $woe_types, $recursion = FALSE )
 	{
 
 		if (
@@ -155,7 +166,7 @@ class bGeo_Data_SimplifyCorrelate
 	}
 
 
-	function stats( $src )
+	public function stats( $src )
 	{
 		// get a geometry from the input json
 		$geometry = $this->new_geometry( $src, 'json' );
@@ -167,17 +178,13 @@ class bGeo_Data_SimplifyCorrelate
 		);
 	}
 
-	function insert_or_merge_geo( $location, $src, $recursion = FALSE )
+	public function insert_or_merge_geo( $location, $src, $geometry, $recursion = FALSE )
 	{
 		if ( 'woeid' != $location->api )
 		{
 			echo "\ninsert_or_merge_geo requires a WOEID, returning without action";
 			return FALSE;
 		}
-
-		// the simplify should probably be done before getting to this method, but it 
-		// inserts a natural delay which is good for rate limiting the API calls
-		$geometry = $this->simplify( $src );
 
 		// the data to insert or merge
 		$parts_key = md5( serialize( $src ) );
@@ -219,7 +226,7 @@ class bGeo_Data_SimplifyCorrelate
 			foreach ( $data->woe_belongtos as $woeid )
 			{
 				echo "\nrecursing belongtos with $woeid";
-				$this->insert_or_merge_geo( bgeo()->new_geo_by_woeid( $woeid ), $src, TRUE );
+				$this->insert_or_merge_geo( bgeo()->new_geo_by_woeid( $woeid ), $src, $geometry, TRUE );
 			}
 		}
 
@@ -264,7 +271,7 @@ class bGeo_Data_SimplifyCorrelate
 		return $row;
 	}
 
-	function insert_row( $data )
+	public function insert_row( $data )
 	{
 		global $wpdb;
 
@@ -308,13 +315,88 @@ class bGeo_Data_SimplifyCorrelate
 		// execute the query
 		$wpdb->query( $sql );
 
+		// ...and export as a file while we have the data
+		$this->export( $data, $this->out_path );
+
+		// @TODO how to communicate success or failure back, maybe?
 		return TRUE;
 	}
 
-	function simplify( $src )
+	public function export( $geo, $out_path )
 	{
-		// get a geometry from the input json
-		$geometry = $this->new_geometry( $src, 'json' );
+		$out_file = $out_path;
+		if ( isset( $geo->woe_raw->country->content ) )
+		{
+			$out_file .= '/Countries/' . $geo->woe_raw->country->content;
+
+			if ( isset( $geo->woe_raw->admin1->content ) )
+			{
+				$out_file .= '/' . $geo->woe_raw->admin1->content;
+			}
+		}
+		else
+		{
+			$out_file .= '/' . $geo->woe_raw->placeTypeName->content;
+		}
+		$out_file .= '/' . $geo->woe_raw->woeid . '-' . $geo->woe_raw->name . '.geojson';
+		$out_path = dirname( $out_file );
+
+		// check for and attempt to create the output directory
+		if ( ! ( file_exists( $out_path ) && is_dir( $out_path ) ) )
+		{
+			if ( ! mkdir( $out_path, 0755, TRUE ) )
+			{
+				$error->text = 'can\'t create output directory';
+				return $error;
+			}
+		}
+
+		// the skeleton object for the geo feature
+		$output = (object) array(
+			'type' => 'Feature',
+			'properties' => (object) array(
+				'name' => $geo->woe_raw->name,
+				'woeid' => $geo->woe_raw->woeid,
+			),
+			'geometry' => json_decode( $this->maybe_simplify( $geo->bgeo_geometry )->out( 'json' ) ),
+		);
+
+		echo "\nExporting $out_file";
+		file_put_contents( $out_file, $this->json_encode( $output ) );
+	}
+
+	public function json_encode( $src )
+	{
+		return str_ireplace(
+			array(
+				'"features":', // separates the preamble from the content
+				'},{',      // separates features from eachother
+				',"geometry"', // separates the geometry from the properties
+			),
+			array(
+				"\"features\":\n",
+				"}\n,\n{",
+				",\n\"geometry\"",
+			),
+			json_encode( $src )
+		);
+	}
+
+	public function maybe_simplify( $geometry )
+	{
+		// merge multipolygons into a single polygon, if possible
+		if ( 'MultiPolygon' == $geometry->geometryType() )
+		{
+			$geometry = $this->merge_into_one( $geometry );
+			$geometry = $this->simplify( $geometry );
+		}
+
+		return $geometry;
+	}
+
+	public function simplify( $geometry )
+	{
+		// get the original area for comparison later
 		$orig_area = $geometry->envelope()->area();
 
 		echo "\nsimp orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area";
@@ -344,7 +426,33 @@ class bGeo_Data_SimplifyCorrelate
 		return $simple_geometry;
 	}
 
-	function centroid( $src )
+	public function merge_into_one( $geometry )
+	{
+		echo "\nmerge orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area";
+
+		// break the geometry into sub-components
+		$parts = $geometry->getComponents();
+
+		// sanity check
+		if ( ! is_array( $parts ) )
+		{
+			return $geometry;
+		}
+
+		// merge the parts into a single whole
+		$whole = $parts[0];
+		unset( $parts[0] );
+		foreach ( $parts as $k => $part )
+		{
+			$whole = $whole->union( $part );
+			echo "\nmerge step " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area";
+		}
+
+		// return the merged result
+		return $whole;
+	}
+
+	public function centroid( $src )
 	{
 		// get a geometry from the input json
 		$geometry = $this->new_geometry( $src, 'json' );
@@ -359,7 +467,7 @@ class bGeo_Data_SimplifyCorrelate
 		);
 	}
 
-	function contains( $src, $point )
+	public function contains( $src, $point )
 	{
 		// get a geometry from the input json
 		$geometry = $this->new_geometry( $src, 'json' );
@@ -372,7 +480,7 @@ class bGeo_Data_SimplifyCorrelate
 		return $bigenvelope->contains( $point );
 	}
 
-	function new_geometry( $input, $adapter )
+	public function new_geometry( $input, $adapter )
 	{
 		if ( ! class_exists( 'geoPHP' ) )
 		{
@@ -382,8 +490,6 @@ class bGeo_Data_SimplifyCorrelate
 		return geoPHP::load( $input, $adapter );
 	} // END new_geometry
 }
-
-$bgeo_data = new bGeo_Data_SimplifyCorrelate();
 
 $sources = array(
 /*
@@ -433,8 +539,9 @@ $sources = array(
 */
 );
 
+$bgeo_data = new bGeo_Data_SimplifyCorrelate( __DIR__ . '/correlated-geos' );
 foreach ( $sources as $source )
 {
-	print_r( $bgeo_data->get_and_split( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->name_keys, $source->woe_types ) );
+	print_r( $bgeo_data->simplify_and_correlate( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->name_keys, $source->woe_types ) );
 }
 
