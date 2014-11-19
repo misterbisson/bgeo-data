@@ -21,12 +21,15 @@ ini_set( 'memory_limit', '4G' );
 
 class bGeo_Data_Simplify
 {
-	function get_and_split( $src_path, $name_keys )
+	function get_and_split( $src_path, $name_keys, $woe_types )
 	{
 		$error = (object) array(
-			'nogroup' => 0,
-			'unsaved' => 0,
-			'text' => '',
+			'matched' => 0,
+			'unmatched' => 0,
+			'unmatched_list' => array(),
+			'inserted' => 0,
+			'notinserted' => 0,
+			'notinserted_list' => array(),
 		);
 
 		// attempt to read the source file
@@ -39,66 +42,122 @@ class bGeo_Data_Simplify
 			return $error;
 		}
 
-		$source->features = array_slice( $source->features , 0, 15 );
+//$source->features = array_slice( $source->features , 0, 15 );
 
 		// iterate through the source, separate features
-		echo "\n";
 		foreach ( $source->features as $feature )
 		{
+
+//print_r( $feature->properties );
+
 			if ( ! is_array( $name_keys ) )
 			{
 				$name_keys = array( $name_keys );
 			}
 
-			// iterate through the name keys, adding pieces until the search returns a result that works
+			// iterate through the name keys, adding pieces until the search returns a result that works, hopefully
 			$search_name = $this->centroid( $feature )->latlon;
 			foreach ( $name_keys as $name_key )
 			{
-				$search_name .= ' ' . preg_replace( '/[0-9]*/', '', $feature->properties->$name_key );
+				$search_name .= ' ' . str_replace( '|', ' ', preg_replace( '/[0-9]*/', '', $feature->properties->$name_key ) );
 				$locations = bgeo()->admin()->posts()->locationlookup( $search_name );
 
-				echo "Searching for $search_name\n";
+				echo "\nSearching for $search_name";
 
 				//print_r( $feature->properties );
-				//print_r( $locations );
 
 				// the location lookup can return multiple locations, inspect each
 				foreach ( $locations as $location )
 				{
-					// is the centroid of this looked up location inside the source geography envelope?
-					$contained = $this->contains( $feature, (object) array( 'lon' => $location->point_lon, 'lat' => $location->point_lat ) );
-					echo "Contained? ";
-					var_dump( $contained );
-					echo "\n\n";
-					if( $contained )
+					$match = $this->match( $location, $feature, $woe_types );
+
+					if ( $match )
 					{
+						echo "\nMatched";
+						$error->matched++;
+
+						//insert this geo via some other function
+						if ( ! $this->insert_or_merge_geo( $location, $feature ) )
+						{
+							$error->notinserted++;
+							$error->notinserted_list[] = $search_name;
+						}
+						else
+						{
+							$error->inserted++;
+						}
+
 						break 2;
 					}
+
+					echo "\nNOT Matched";
 				}
 			}
 
-//die;
-continue;
-
-
-
-
-			$log_geo_orig = $this->stats( $feature );
-
-			echo "\nSimplified " . basename( $src_path, '.geojson' ) . ' ' . $feature->properties->name . "\n\n";
-
-			// @TODO: log the execution time for this step
-			$feature->geometry = $this->simplify( $feature );
-
-			$log_geo_simpl = $this->stats( $feature );
+			if ( ! $match )
+			{
+				$error->unmatched++;
+				$error->unmatched_list[] = $search_name;
+			}
+			echo "\n\n";
 		}
 
 		// explicitly clean up vars to save memory
-		unset( $source, $output, $output_merged );
+		unset( $source );
 
 		// return any errors
 		return $error;
 	}
+
+	function match( $location, $feature, $woe_types, $recursion = FALSE )
+	{
+
+		if (
+			! is_object( $location ) ||
+			is_wp_error( $location )
+		)
+		{
+			echo "\nLocation NOT valid";
+			return FALSE;
+		}
+
+		// is the centroid of this looked up location inside the source geography envelope?
+		if ( ! $this->contains( $feature, (object) array( 'lon' => $location->point_lon, 'lat' => $location->point_lat ) ) )
+		{
+			echo "\nLocation NOT coincident";
+			return FALSE;
+		}
+		echo "\nLocation is coincident";
+
+		// is the found location a valid WOE type?
+		if ( in_array( (int) $location->api_raw->placeTypeName->code, $woe_types ) )
+		{
+			echo "\nWOEID type is valid";
+			return $location;
+		}
+		elseif ( ! $recursion )
+		{
+
+var_dump( $location->api_raw->placeTypeName->code );
+
+
+			echo "\nWOEID type is NOT valid ( {$location->api_raw->placeTypeName->code} ), recursing into belontos";
+			foreach ( $location->belongtos as $belongto )
+			{
+				if ( 'woeid' != $belongto->api )
+				{
+					continue;
+				}
+
+				return $this->match( bgeo()->new_geo_by_woeid( $belongto->api_id ), $feature, $woe_types, TRUE );
+			}
+		}
+
+		// this is a failed response
+		// successful responses are handled above
+		return FALSE;
+	}
+
 
 	function stats( $src )
 	{
@@ -112,7 +171,97 @@ continue;
 		);
 	}
 
-	function insert_geo( $data )
+	function insert_or_merge_geo( $location, $src, $recursion = FALSE )
+	{
+		if ( 'woeid' != $location->api )
+		{
+			echo "\ninsert_or_merge_geo requires a WOEID, returning without action";
+			return FALSE;
+		}
+
+		// the simplify should probably be done before getting to this method, but it 
+		// inserts a natural delay which is good for rate limiting the API calls
+		$geometry = $this->simplify( $src );
+
+		// the data to insert or merge
+		$parts_key = md5( serialize( $src ) );
+		$data = (object) array(
+			'woeid' => $location->api_id,
+			'woe_raw' => $location->api_raw,
+			'woe_belongtos' => wp_list_pluck( $location->belongtos, 'api_id' ),
+			'bgeo_geometry' => $geometry,
+			'bgeo_parts' => array( $parts_key => clone $src ),
+		);
+		unset( $data->bgeo_parts[ $parts_key ]->geometry );
+
+		// check for an existing record for this WOEID
+		$existing = $this->get_row( $location->api_id );
+
+		// insert if this is the first try at this WOEID
+		if ( ! $existing )
+		{
+			echo "\ninserting new row";
+			return $this->insert_row( $data );
+		}
+
+		// we've been here before, merge the parts and update
+		$existing->bgeo_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
+		$existing->woe_belongtos = array_unique( array_filter( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) ) );
+		$existing->bgeo_parts[ $parts_key ] = $data->bgeo_parts[ $parts_key ];
+
+		echo "\nupdating existing row";
+		$this->insert_row( $existing );
+
+		if ( ! $recursion )
+		{
+			foreach ( $data->woe_belongtos as $woeid )
+			{
+				echo "\nrecursing belongtos with $woeid";
+				$this->insert_or_merge_geo( bgeo()->new_geo_by_woeid( $woeid ), $src, TRUE );
+			}
+		}
+
+		return TRUE;
+	}
+
+	public function get_row( $woeid )
+	{
+		global $wpdb;
+
+		$row = $wpdb->get_row('
+			SELECT
+				woeid,
+				woe_raw,
+				woe_belongtos,
+				AsText(bgeo_geometry) AS bgeo_geometry,
+				bgeo_parts
+			FROM bgeo_data2
+			WHERE 1 = 1
+				AND woeid = ' . (int) $woeid . '
+			LIMIT 1
+		');
+
+		if ( empty( $row ) )
+		{
+			return FALSE;
+		}
+
+		// convert the geometry into a proper object
+		if ( ! empty( $row->bgeo_geometry ) )
+		{
+			$row->bgeo_geometry = $this->new_geometry( $row->bgeo_geometry, 'wkt' );
+		}
+
+		// unserialize the pieces
+		foreach ( array( 'woe_raw', 'woe_belongtos', 'bgeo_parts' ) as $key )
+		{
+			$row->$key = maybe_unserialize( $row->$key );
+		}
+
+		return $row;
+	}
+
+	function insert_row( $data )
 	{
 		global $wpdb;
 
@@ -124,48 +273,33 @@ continue;
 			echo "\n\n";
 		}
 
-		$bgeo_geometry = $this->new_geometry( json_encode( $data->bgeo_geometry ), 'json' );
-
 		$sql = $wpdb->prepare(
-			'INSERT INTO bgeo_data
+			'INSERT INTO bgeo_data2
 			(
-				bgeo_key,
-				bgeo_key_unencoded,
+				woeid,
+				woe_raw,
+				woe_belongtos,
 				bgeo_geometry,
-				bgeo_type,
-				ne_name,
-				ne_admin,
-				ne_properties,
-				w_uri
+				bgeo_parts
 			)
 			VALUES(
 				\'%1$s\',
 				\'%2$s\',
-				GeomFromText( "%3$s" ),
-				\'%4$s\',
-				\'%5$s\',
-				\'%6$s\',
-				\'%7$s\',
-				\'%8$s\',
+				\'%3$s\',
+				GeomFromText( "%4$s" ),
+				\'%5$s\'
 			)
 			ON DUPLICATE KEY UPDATE
-				bgeo_key = VALUES( bgeo_key ),
-				bgeo_key_unencoded = VALUES( bgeo_key_unencoded ),
-				bgeo_geometry = VALUES( bgeo_geometry ),
-				bgeo_type = VALUES( bgeo_type ),
-				ne_name = VALUES( ne_name ),
-				ne_admin = VALUES( ne_admin ),
-				ne_properties = VALUES( ne_properties ),
-				w_uri = VALUES( w_uri )
+				woeid = VALUES( woeid ),
+				woe_raw = VALUES( woe_raw ),
+				woe_belongtos = VALUES( woe_belongtos ),
+				bgeo_parts = VALUES( bgeo_parts )
 			',
-			$data->bgeo_key,
-			$data->bgeo_key_unencoded,
-			$bgeo_geometry->asText(),
-			$data->bgeo_type,
-			$data->ne_name,
-			$data->ne_admin,
-			serialize( $data->ne_properties ),
-			$data->w_uri
+			$data->woeid,
+			maybe_serialize( $data->woe_raw ),
+			maybe_serialize( $data->woe_belongtos ),
+			$data->bgeo_geometry->asText(),
+			maybe_serialize( $data->bgeo_parts )
 		);
 
 		// execute the query
@@ -174,59 +308,13 @@ continue;
 		return TRUE;
 	}
 
-	function json_encode( $src )
-	{
-		return str_ireplace(
-			array(
-				'"features":', // separates the preamble from the content
-				'},{',      // separates features from eachother
-				',"geometry"', // separates the geometry from the properties
-			),
-			array(
-				"\"features\":\n",
-				"}\n,\n{",
-				",\n\"geometry\"",
-			),
-			json_encode( $src )
-		);
-	}
-
-	function merge_into_one( $src )
-	{
-		// get a geometry from the input json
-		$geometry = $this->new_geometry( $src, 'json' );
-
-		echo 'merge orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area\n";
-
-		// break the geometry into sub-components
-		$parts = $geometry->getComponents();
-
-		// sanity check
-		if ( ! is_array( $parts ) )
-		{
-			return json_decode( $geometry->out( 'json' ) );
-		}
-
-		// merge the parts into a single whole
-		$whole = $parts[0];
-		unset( $parts[0] );
-		foreach ( $parts as $k => $part )
-		{
-			$whole = $whole->union( $part );
-			echo 'merge step ' . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area\n";
-		}
-
-		// return the merged and smoother result
-		return $this->simplify( $whole->out( 'json' ) );
-	}
-
 	function simplify( $src )
 	{
 		// get a geometry from the input json
 		$geometry = $this->new_geometry( $src, 'json' );
 		$orig_area = $geometry->envelope()->area();
 
-		echo 'simp orig: ' . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area\n";
+		echo "\nsimp orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area";
 
 		$buffer_factor = 1.09;
 		$buffer_buffer_factor = 0.020;
@@ -235,7 +323,7 @@ continue;
 
 		do
 		{
-			echo "simp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )\n";
+			echo "\nsimp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )";
 
 			$simple_geometry = clone $geometry;
 			$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
@@ -248,11 +336,9 @@ continue;
 		}
 		while ( $orig_area > $simple_area );
 
-		echo 'simp simp: ' . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->envelope()->area() . " area\n";
+		echo "\nsimp simp: " . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->envelope()->area() . " area";
 
-		$return = json_decode( $simple_geometry->out( 'json' ) );
-
-		return json_decode( $simple_geometry->out( 'json' ) );
+		return $simple_geometry;
 	}
 
 	function centroid( $src )
@@ -276,12 +362,8 @@ continue;
 		$geometry = $this->new_geometry( $src, 'json' );
 		$bigenvelope = $geometry->buffer( 1.05 )->envelope();
 
-//echo $bigenvelope->out( 'json' );
-
 		// create a point geo from the provided point lat and lon
 		$point = $this->new_geometry( 'POINT (' . $point->lon . ' ' . $point->lat . ')', 'wkt' );
-
-//echo $point->out( 'json' );
 
 		// is the point inside the geo?
 		return $bigenvelope->contains( $point );
@@ -305,42 +387,43 @@ $sources = array(
 */
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
-		'name_key' => array( 'admin', 'sovereignt' ),
+		'name_keys' => array( 'admin', 'sovereignt' ),
 		'woe_types' => array( 12 ),
 		'constrain' => FALSE,
 	),
-/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
-		'name_key' => 'name',
+		'name_keys' => array( 'name', 'admin', 'name_alt', 'name_local' ),
 		'woe_types' => array( 8 ),
 		'constrain' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
-		'name_key' => 'unit_name',
+		'name_keys' => array( 'unit_name', 'unit_type' ),
+		'name_keys' => 'unit_name',
 		'woe_types' => array( 13, 16, 20 ),
 	),
 	(object) array(
 		'src_file' => 'ne_10m_geography_marine_polys.geojson',
-		'name_key' => 'name',
+		'name_keys' => array( 'name' ),
 		'woe_types' => array( 15, 37, 38 ),
 		'constrain' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_lakes.geojson',
-		'name_key' => 'name',
+		'name_keys' => array( 'name', 'featurecla', 'name_alt' ),
 		'woe_types' => array( 15, 37, 38 ),
 	),
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
-		'name_key' => 'name_conve',
+		'name_keys' => array( 'name_conve' ),
 		'woe_types' => array( 7 ),
 		'constrain' => TRUE,
 	),
+/*
 	(object) array(
 		'src_file' => 'ne_10m_urban_areas_landscan_truncated.geojson',
-		'name_key' => 'name',
+		'name_keys' => array( 'name_conve' ),
 		'woe_types' => array( 7 ),
 		'constrain' => TRUE,
 	),
@@ -349,6 +432,6 @@ $sources = array(
 
 foreach ( $sources as $source )
 {
-	print_r( $bgeo_data->get_and_split( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->name_key ) );
+	print_r( $bgeo_data->get_and_split( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->name_keys, $source->woe_types ) );
 }
 
