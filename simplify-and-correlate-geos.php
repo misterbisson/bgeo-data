@@ -493,13 +493,13 @@ class bGeo_Data_SimplifyCorrelate
 
 $sources = array(
 /*
-*/
 	(object) array(
 		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
 		'name_keys' => array( 'admin', 'sovereignt' ),
 		'woe_types' => array( 12 ),
 		'constrain' => FALSE,
 	),
+*/
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'name_keys' => array( 'name', 'admin', 'name_alt', 'name_local' ),
