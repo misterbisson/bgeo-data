@@ -544,10 +544,10 @@ $sources = array(
 /*
 */
 	(object) array(
-		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
-		'name_keys' => array( 'admin', 'sovereignt' ),
-		'woe_types' => array( 12 ),
-		'constrain' => FALSE,
+		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
+		'name_keys' => array( 'name_conve' ),
+		'woe_types' => array( 7 ),
+		'constrain' => TRUE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
@@ -556,10 +556,10 @@ $sources = array(
 		'constrain' => FALSE,
 	),
 	(object) array(
-		'src_file' => 'ne_10m_urban_areas_landscan.geojson',
-		'name_keys' => array( 'name_conve' ),
-		'woe_types' => array( 7 ),
-		'constrain' => TRUE,
+		'src_file' => 'ne_10m_admin_0_countries_lakes.geojson',
+		'name_keys' => array( 'admin', 'sovereignt' ),
+		'woe_types' => array( 12 ),
+		'constrain' => FALSE,
 	),
 	(object) array(
 		'src_file' => 'ne_10m_parks_and_protected_lands_area.geojson',
@@ -588,9 +588,12 @@ $sources = array(
 */
 );
 
-$bgeo_data = new bGeo_Data_SimplifyCorrelate( __DIR__ . '/correlated-geos', __DIR__ . '/logs' );
 foreach ( $sources as $source )
 {
+	$bgeo_data = new bGeo_Data_SimplifyCorrelate( __DIR__ . '/correlated-geos', __DIR__ . '/logs' );
 	print_r( $bgeo_data->simplify_and_correlate( __DIR__ . '/naturalearthdata/' . $source->src_file, $source->name_keys, $source->woe_types ) );
+
+	// explicitly destroy this object to reduce memory leaks
+	unset( $bgeo_data );
 }
 
