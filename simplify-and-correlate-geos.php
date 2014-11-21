@@ -54,6 +54,7 @@ class bGeo_Data_SimplifyCorrelate
 		}
 
 //$source->features = array_slice( $source->features , 0, 15 );
+$source->features = array_slice( $source->features , 2500, 1250 );
 
 		// iterate through the source, separate features
 		foreach ( $source->features as $feature )
@@ -552,6 +553,7 @@ $sources = array(
 		'woe_types' => array( 7 ),
 		'constrain' => TRUE,
 	),
+/*
 	(object) array(
 		'src_file' => 'ne_10m_admin_1_states_provinces_lakes_shp.geojson',
 		'name_keys' => array( 'name', 'admin', 'name_alt', 'name_local' ),
@@ -576,7 +578,6 @@ $sources = array(
 		'woe_types' => array( 15, 37, 38 ),
 		'constrain' => FALSE,
 	),
-/*
 	(object) array(
 		'src_file' => 'ne_10m_lakes.geojson',
 		'name_keys' => array( 'name', 'featurecla', 'name_alt' ),
