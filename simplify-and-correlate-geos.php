@@ -222,7 +222,7 @@ class bGeo_Data_SimplifyCorrelate
 			rsort( $existing->woe_belongtos );
 			$var = array_filter( array_unique( $existing->woe_belongtos ) );
 
-			$existing->bgeo_parts[ $parts_key ] = $data->bgeo_parts[ $parts_key ];
+//			$existing->bgeo_parts[ (string) $parts_key ] = (object) $data->bgeo_parts[ (string) $parts_key ];
 	
 			echo "\nupdating existing row";
 			$this->insert_row( $existing );
@@ -275,6 +275,9 @@ class bGeo_Data_SimplifyCorrelate
 			$row->$key = maybe_unserialize( $row->$key );
 		}
 
+		// @TODO temporarily nulling this value
+		$row->bgeo_parts = array();
+
 		return $row;
 	}
 
@@ -316,7 +319,7 @@ class bGeo_Data_SimplifyCorrelate
 			maybe_serialize( $data->woe_raw ),
 			maybe_serialize( $data->woe_belongtos ),
 			$data->bgeo_geometry->asText(),
-			maybe_serialize( $data->bgeo_parts )
+			'' //maybe_serialize( $data->bgeo_parts )
 		);
 
 		// execute the query
