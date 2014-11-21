@@ -13,9 +13,46 @@ WP_CLI::success( 'message.' );
 	public function simplify_and_correlate( $args, $assoc_args )
 	{
 
-print_r( $assoc_args );
-die;
-		//$src_path, $name_keys, $woe_types
+		if ( empty( $args ) )
+		{
+			WP_CLI::error( 'No input file was specified.' );
+			return;
+		}
+
+		if ( ! is_array( $assoc_args ) )
+		{
+			$assoc_args = array();
+		}
+
+		$assoc_args['source'] = $args[0];
+		$args = (object) array_intersect_key( $assoc_args, array(
+			'source' => TRUE,
+			'namekeys' => TRUE,
+			'woetypes' => TRUE,
+			'offset' => TRUE,
+			'limit' => TRUE,
+		) );
+
+		if ( ! isset( $args->source, $args->namekeys, $args->woetypes ) )
+		{
+			WP_CLI::error( 'Input file, --namekeys, and --woetypes values are required.' );
+			return;
+		}
+
+		$args->namekeys = array_map( 'trim', explode( ',', $args->namekeys ) );
+		$args->woetypes = wp_parse_id_list( $args->woetypes );
+
+		if ( empty( $args->namekeys ) )
+		{
+			WP_CLI::error( '--namekeys arg has no parsed values' );
+			return;
+		}
+
+		if ( empty( $args->woetypes ) )
+		{
+			WP_CLI::error( '--woetypes arg has no parsed values' );
+			return;
+		}
 
 		$error = (object) array(
 			'matched' => 0,
@@ -27,17 +64,33 @@ die;
 		);
 
 		// attempt to read the source file
-		$source = json_decode( file_get_contents( $src_path ) );
+		$source = json_decode( file_get_contents( $args->source ) );
 
 		// sanity check that read
 		if ( ! is_object( $source ) )
 		{
-			$error->text = 'can\'t json_decode() or read source file from ' . $src_path;
+			$error->text = 'can\'t json_decode() or read source file from ' . $args->source;
 			return $error;
 		}
 
-//$source->features = array_slice( $source->features , 0, 15 );
-$source->features = array_slice( $source->features , 5000, 1250 );
+		if ( isset( $args->offset ) || isset( $args->limit ) )
+		{
+			// both are set
+			if ( isset( $args->offset, $args->limit ) )
+			{
+				$source->features = array_slice( $source->features, $args->offset, $args->limit );
+			}
+			// just the offset is set
+			elseif ( isset( $args->offset ) )
+			{
+				$source->features = array_slice( $source->features, $args->offset );
+			}
+			// just the limit is set
+			else
+			{
+				$source->features = array_slice( $source->features, 0, $args->limit );
+			}
+		}
 
 		// iterate through the source, separate features
 		foreach ( $source->features as $feature )
@@ -45,15 +98,10 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 
 //print_r( $feature->properties );
 
-			if ( ! is_array( $name_keys ) )
-			{
-				$name_keys = array( $name_keys );
-			}
-
 			// iterate through the name keys, adding pieces until the search returns a result that works, hopefully
 			$geometry = bgeo()->new_geometry( $feature, 'json' );
 			$search_name = self::centroid( $geometry )->latlon;
-			foreach ( $name_keys as $name_key )
+			foreach ( $args->namekeys as $name_key )
 			{
 				$search_name .= ' ' . str_replace( '|', ' ', preg_replace( '/[0-9]*/', '', $feature->properties->$name_key ) );
 				$locations = bgeo()->admin()->posts()->locationlookup( $search_name );
@@ -65,7 +113,7 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 				// the location lookup can return multiple locations, inspect each
 				foreach ( $locations as $location )
 				{
-					$match = self::match( $location, $geometry, $woe_types );
+					$match = self::match( $location, $geometry, $args->woetypes );
 
 					if ( $match )
 					{
@@ -97,7 +145,7 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 			if ( ! $match )
 			{
 				self::log( array(
-					'source' => basename( $src_path ),
+					'source' => basename( $args->source ),
 					'error' => 'no match',
 					'item' => $search_name,
 				) );
@@ -173,9 +221,7 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 			'woe_raw' => $location->api_raw,
 			'woe_belongtos' => wp_list_pluck( $location->belongtos, 'api_id' ),
 			'bgeo_geometry' => $geometry,
-			'bgeo_parts' => array( $parts_key => clone $src ),
 		);
-		unset( $data->bgeo_parts[ $parts_key ]->geometry );
 
 		// check for an existing record for this WOEID
 		$existing = self::get_row( $location->api_id );
@@ -193,8 +239,6 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 			$existing->woe_belongtos = array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos );
 			rsort( $existing->woe_belongtos );
 			$var = array_filter( array_unique( $existing->woe_belongtos ) );
-
-//			$existing->bgeo_parts[ (string) $parts_key ] = (object) $data->bgeo_parts[ (string) $parts_key ];
 	
 			echo "\nupdating existing row";
 			self::insert_row( $existing );
@@ -213,18 +257,61 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 		return TRUE;
 	}
 
-	private function get_row( $woeid )
+	private function get_table_name()
+	{
+		global $wpdb;
+		return $wpdb->prefix . 'bgeo_data';
+	}
+
+	private function maybe_create_table()
+	{
+		static $did_create_table = FALSE;
+
+		if ( ! $did_create_table )
+		{
+			self::create_table();
+			$did_create_table = TRUE;
+		}
+	}//end maybe_create_table
+
+	private function create_table()
 	{
 		global $wpdb;
 
+		if ( ! empty( $wpdb->charset ) )
+		{
+			$charset_collate = 'DEFAULT CHARACTER SET '. $wpdb->charset;
+		}
+		if ( ! empty( $wpdb->collate ) )
+		{
+			$charset_collate .= ' COLLATE '. $wpdb->collate;
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		return dbDelta( "
+			CREATE TABLE " . self::get_table_name() . " (
+				`woeid` int(16) unsigned NOT NULL,
+				`woe_raw` text NOT NULL,
+				`woe_belongtos` text NOT NULL,
+				`bgeo_geometry` geometrycollection NOT NULL
+				PRIMARY KEY (`woeid`)
+			) ENGINE=MyISAM $charset_collate;
+		" );
+	}//end create_table
+
+	private function get_row( $woeid )
+	{
+		self::maybe_create_table();
+
+		global $wpdb;
 		$row = $wpdb->get_row('
 			SELECT
 				woeid,
 				woe_raw,
 				woe_belongtos,
-				AsText(bgeo_geometry) AS bgeo_geometry,
-				bgeo_parts
-			FROM bgeo_data2
+				AsText(bgeo_geometry) AS bgeo_geometry
+			FROM ' . self::get_table_name() . '
 			WHERE 1 = 1
 				AND woeid = ' . (int) $woeid . '
 			LIMIT 1
@@ -242,21 +329,19 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 		}
 
 		// unserialize the pieces
-		foreach ( array( 'woe_raw', 'woe_belongtos', 'bgeo_parts' ) as $key )
+		foreach ( array( 'woe_raw', 'woe_belongtos' ) as $key )
 		{
 			$row->$key = maybe_unserialize( $row->$key );
 		}
-
-		// @TODO temporarily nulling this value
-		$row->bgeo_parts = array();
 
 		return $row;
 	}
 
 	private function insert_row( $data )
 	{
-		global $wpdb;
+		self::maybe_create_table();
 
+		global $wpdb;
 		if ( empty( $data->bgeo_geometry ) )
 		{
 			echo "\n ERROR: Empty geometry!\n\n";
@@ -266,13 +351,12 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 		}
 
 		$sql = $wpdb->prepare(
-			'INSERT INTO bgeo_data2
+			'INSERT INTO ' . self::get_table_name() . '
 			(
 				woeid,
 				woe_raw,
 				woe_belongtos,
-				bgeo_geometry,
-				bgeo_parts
+				bgeo_geometry
 			)
 			VALUES(
 				\'%1$s\',
@@ -284,14 +368,12 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 			ON DUPLICATE KEY UPDATE
 				woeid = VALUES( woeid ),
 				woe_raw = VALUES( woe_raw ),
-				woe_belongtos = VALUES( woe_belongtos ),
-				bgeo_parts = VALUES( bgeo_parts )
+				woe_belongtos = VALUES( woe_belongtos )
 			',
 			$data->woeid,
 			maybe_serialize( $data->woe_raw ),
 			maybe_serialize( $data->woe_belongtos ),
-			$data->bgeo_geometry->asText(),
-			'' //maybe_serialize( $data->bgeo_parts )
+			$data->bgeo_geometry->asText()
 		);
 
 		// execute the query
