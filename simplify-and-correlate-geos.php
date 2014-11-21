@@ -54,7 +54,7 @@ class bGeo_Data_SimplifyCorrelate
 		}
 
 //$source->features = array_slice( $source->features , 0, 15 );
-$source->features = array_slice( $source->features , 2500, 1250 );
+$source->features = array_slice( $source->features , 5000, 1250 );
 
 		// iterate through the source, separate features
 		foreach ( $source->features as $feature )
