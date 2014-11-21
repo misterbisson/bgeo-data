@@ -218,11 +218,10 @@ class bGeo_Data_SimplifyCorrelate
 		{
 			// we've been here before, merge the parts and update
 			$existing->bgeo_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
-			$existing->woe_belongtos = array_unique( array_filter( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) ) );
-			if ( ! is_array( $existing->bgeo_parts ) )
-			{
-				$existing->bgeo_parts = (array) $existing->bgeo_parts;
-			}
+			$existing->woe_belongtos = array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos );
+			rsort( $existing->woe_belongtos );
+			$var = array_filter( array_unique( $existing->woe_belongtos ) );
+
 			$existing->bgeo_parts[ $parts_key ] = $data->bgeo_parts[ $parts_key ];
 	
 			echo "\nupdating existing row";
