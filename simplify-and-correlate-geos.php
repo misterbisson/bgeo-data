@@ -423,11 +423,13 @@ $source->features = array_slice( $source->features , 5000, 1250 );
 		return str_ireplace(
 			array(
 				'"features":', // separates the preamble from the content
-				'},{',      // separates features from eachother
+				']],[[',       // separates features from eachother
+				'},{',         // separates features from eachother
 				',"geometry"', // separates the geometry from the properties
 			),
 			array(
 				"\"features\":\n",
+				"]]\n,\n[[",
 				"}\n,\n{",
 				",\n\"geometry\"",
 			),
