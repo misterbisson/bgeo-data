@@ -1,3 +1,4 @@
+
 <?php
 
 //define( 'WP_INSTALLING', TRUE );
@@ -86,7 +87,7 @@ class bGeo_Data_SimplifyCorrelate
 						echo "\nMatched";
 						$error->matched++;
 
-						//insert this geo via some other function
+						//insert this geo
 						if ( ! $this->insert_or_merge_geo(
 							$location,
 							$feature,
@@ -155,7 +156,7 @@ class bGeo_Data_SimplifyCorrelate
 		}
 		elseif ( ! $recursion )
 		{
-			echo "\nWOEID type is NOT valid ( {$location->api_raw->placeTypeName->code} ), recursing into belongtos";
+			echo "\nWOEID type is NOT valid ({$location->api_raw->placeTypeName->code}), recursing into belongtos";
 			foreach ( $location->belongtos as $belongto )
 			{
 				if ( 'woeid' != $belongto->api )
