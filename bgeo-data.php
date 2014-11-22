@@ -265,6 +265,12 @@ class bGeo_Data extends WP_CLI_Command
 		return FALSE;
 	}
 
+	private function sanitize_belongtos( $woeids )
+	{
+		rsort( $woeids );
+		return array_filter( array_unique( $woeids ) );
+	}
+
 	private function insert_or_merge_geo( $location, $geometry, $recursion = FALSE )
 	{
 		if ( 'woeid' != $location->api )
@@ -279,7 +285,7 @@ class bGeo_Data extends WP_CLI_Command
 		$data = (object) array(
 			'woeid' => $location->api_id,
 			'woe_raw' => $location->api_raw,
-			'woe_belongtos' => wp_list_pluck( $location->belongtos, 'api_id' ),
+			'woe_belongtos' => self::sanitize_belongtos( wp_list_pluck( $location->belongtos, 'api_id' ) ),
 			'bgeo_geometry' => $geometry,
 		);
 
@@ -307,9 +313,7 @@ class bGeo_Data extends WP_CLI_Command
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
 			}
 			$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
-			$existing->woe_belongtos = array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos );
-			rsort( $existing->woe_belongtos );
-			$var = array_filter( array_unique( $existing->woe_belongtos ) );
+			$existing->woe_belongtos = self::sanitize_belongtos( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) );
 	
 			WP_CLI::line( "updating existing row" );
 			self::insert_row( $existing );
@@ -407,6 +411,7 @@ class bGeo_Data extends WP_CLI_Command
 		{
 			$row->$key = maybe_unserialize( $row->$key );
 		}
+		$row->woe_belongtos = self::sanitize_belongtos( $row->woe_belongtos );
 
 		return $row;
 	}
