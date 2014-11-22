@@ -487,18 +487,18 @@ class bGeo_Data extends WP_CLI_Command
 		$i = 0;
 		while ( $lock = wp_cache_get( $woeid, 'bgeo-data-lock', TRUE ) )
 		{
-			if ( 5 < $i )
+			if ( 90 < $i )
 			{
 				WP_CLI::warning( "Giving up waiting for lock on $woeid" );
 				break;
 			}
 
 			WP_CLI::warning( "Waiting for lock on $woeid. Previous lock set " . ( time() - $lock ) . " seconds ago.");
-			usleep( 500 );
+			sleep( 2 );
 			$i++;
 		}
 
-		wp_cache_set( $woeid, time(), 'bgeo-data-lock', 5 );
+		wp_cache_set( $woeid, time(), 'bgeo-data-lock', 3600 );
 		return TRUE;
 	}
 
