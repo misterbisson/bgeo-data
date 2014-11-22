@@ -273,6 +273,8 @@ class bGeo_Data extends WP_CLI_Command
 			return FALSE;
 		}
 
+		self::get_lock( $location->api_id );
+
 		// the data to insert or merge
 		$data = (object) array(
 			'woeid' => $location->api_id,
@@ -312,6 +314,8 @@ class bGeo_Data extends WP_CLI_Command
 			WP_CLI::line( "updating existing row" );
 			self::insert_row( $existing );
 		}
+
+		self::release_lock( $location->api_id );
 
 		if ( ! $recursion )
 		{
@@ -451,6 +455,33 @@ class bGeo_Data extends WP_CLI_Command
 		self::export( $data );
 
 		// @TODO how to communicate success or failure back, maybe?
+		return TRUE;
+	}
+
+	private function get_lock( $woeid )
+	{
+		$i = 0;
+		while ( $lock = wp_cache_get( $woeid, 'bgeo-data-lock', TRUE ) )
+		{
+			if ( 5 < $i )
+			{
+				WP_CLI::warning( "Giving up waiting for lock on $woeid" );
+				break;
+			}
+
+			WP_CLI::warning( "Waiting for lock on $woeid. Previous lock set " . ( time() - $lock ) . " seconds ago.");
+			usleep( 500 );
+			$i++;
+		}
+
+		wp_cache_set( $woeid, time(), 'bgeo-data-lock', 5 );
+		return TRUE;
+	}
+
+	private function release_lock( $woeid )
+	{
+		wp_cache_delete( $woeid, 'bgeo-data-lock' );
+
 		return TRUE;
 	}
 
