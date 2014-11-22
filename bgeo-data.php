@@ -550,7 +550,11 @@ class bGeo_Data extends WP_CLI_Command
 		// merge multipolygons into a single polygon, if possible
 		if ( 'MultiPolygon' == $geometry->geometryType() )
 		{
-			$geometry = self::merge_into_one( $geometry );
+			$geometry = self::reduce( $geometry );
+			$geometry = self::reduce( $geometry );
+			// this is throwing fatals for some reason.
+			// commented out and using the above for now.
+			// $geometry = self::merge_into_one( $geometry );
 			$geometry = self::simplify( $geometry );
 		}
 
