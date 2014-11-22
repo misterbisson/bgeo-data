@@ -328,7 +328,7 @@ class bGeo_Data extends WP_CLI_Command
 			catch ( Exception $e )
 			{
 				WP_CLI::warning( "Caught exception while trying to union() geometries near " . __FILE__ . ':' . __LINE__ . '.' );
-				WP_CLI::warning( 'Attempted to union ' . $data->geometryType() . ' into ' . $existing->geometryType() . '.' );
+				WP_CLI::warning( 'Attempted to union ' . $data->bgeo_geometry->geometryType() . ' into ' . $existing->bgeo_geometry->geometryType() . '.' );
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
 				WP_CLI::warning( 'Instead reduced to ' . $existing->bgeo_geometry->geometryType() . ' with ' . count( (array) $existing->bgeo_geometry->getComponents() ) . '.' );
 			}
@@ -503,7 +503,7 @@ class bGeo_Data extends WP_CLI_Command
 		{
 			if ( 1000 < $i )
 			{
-				WP_CLI::warning( "Giving up waiting for lock on $woeid. Previous lock set " . ( time() - $lock ) . " seconds ago." );
+				WP_CLI::warning( "\nGiving up waiting for lock on $woeid. Previous lock set " . ( time() - $lock ) . " seconds ago." );
 				break;
 			}
 
