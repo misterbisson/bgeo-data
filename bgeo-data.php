@@ -298,7 +298,7 @@ class bGeo_Data extends WP_CLI_Command
 				$unioned_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
 				$existing->bgeo_geometry = $unioned_geometry;
 			}
-			catch
+			catch (Exception $e)
 			{
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
 			}
@@ -572,7 +572,7 @@ class bGeo_Data extends WP_CLI_Command
 				$unioned_geometry = self::merge_into_one( $geometry );
 				$geometry = $unioned_geometry;
 			}
-			catch
+			catch (Exception $e)
 			{
 				// what else can I do?
 				$geometry = self::reduce( $geometry );
