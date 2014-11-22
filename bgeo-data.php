@@ -238,7 +238,6 @@ class bGeo_Data extends WP_CLI_Command
 			WP_CLI::warning( "Location NOT coincident" );
 			return FALSE;
 		}
-		WP_CLI::warning( "Location NOT coincident" );
 
 		// is the found location a valid WOE type?
 		if ( in_array( (int) $location->api_raw->placeTypeName->code, $woe_types ) )
@@ -267,8 +266,13 @@ class bGeo_Data extends WP_CLI_Command
 
 	private function sanitize_belongtos( $woeids )
 	{
+		if ( ! is_array( $woeids ) )
+		{
+			return array();
+		}
+
 		rsort( $woeids );
-		return array_filter( array_unique( $woeids ) );
+		return array_filter( array_unique( (array) $woeids ) );
 	}
 
 	private function insert_or_merge_geo( $location, $geometry, $recursion = FALSE )
@@ -310,7 +314,7 @@ class bGeo_Data extends WP_CLI_Command
 			}
 			catch ( Exception $e )
 			{
-				WP_CLI::error( "Caught exception while trying to union geometries near __FILE__:__LINE__." );
+				WP_CLI::error( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
 			}
 			$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
@@ -614,7 +618,7 @@ class bGeo_Data extends WP_CLI_Command
 			catch ( Exception $e )
 			{
 				// what else can I do?
-				WP_CLI::error( "Caught exception while trying to union geometries near __FILE__:__LINE__." );
+				WP_CLI::error( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
 				$geometry = self::reduce( $geometry );
 			}
 
