@@ -1,18 +1,48 @@
 <?php
 
+/*
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_urban_areas_landscan.geojson --namekeys=name_conve --woetypes=7 --offset=0 --limit=1100
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_urban_areas_landscan.geojson --namekeys=name_conve --woetypes=7 --offset=1100 --limit=1100
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_urban_areas_landscan.geojson --namekeys=name_conve --woetypes=7 --offset=2200 --limit=1100
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_urban_areas_landscan.geojson --namekeys=name_conve --woetypes=7 --offset=3300 --limit=1100
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_urban_areas_landscan.geojson --namekeys=name_conve --woetypes=7 --offset=4400 --limit=1100
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_urban_areas_landscan.geojson --namekeys=name_conve --woetypes=7 --offset=5500 --limit=1100
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_parks_and_protected_lands_area.geojson --namekeys=unit_name,unit_type --woetypes=13,16,20
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_geography_marine_polys.geojson --namekeys=name --woetypes=15,37,38
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_lakes.geojson --namekeys=name,featurecla,name_alt --woetypes=15,37,38
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/e_10m_admin_1_states_provinces_lakes_shp.geojson --namekeys=name,admin,name_alt,name_local --woetypes=8
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_admin_0_countries_lakes.geojson --namekeys=admin,sovereignt --woetypes=12
+*/
+
 class bGeo_Data extends WP_CLI_Command
 {
-/*
-Some API commands, more at https://github.com/wp-cli/wp-cli/wiki/API
-WP_CLI::error( 'message.' );
-WP_CLI::warning( 'message.' );
-WP_CLI::line( 'message.' );
-WP_CLI::success( 'message.' );
-*/
+
+	public function count_features( $args, $assoc_args )
+	{
+		if ( empty( $args ) )
+		{
+			WP_CLI::error( 'No input file was specified.' );
+			return;
+		}
+
+		// attempt to read the source file
+		$source = json_decode( file_get_contents( $args[0] ) );
+
+		WP_CLI::success( count( $source->features ) . ' features in ' . $args[0] );
+	}
 
 	public function simplify_and_correlate( $args, $assoc_args )
 	{
-
 		if ( empty( $args ) )
 		{
 			WP_CLI::error( 'No input file was specified.' );
@@ -99,14 +129,14 @@ WP_CLI::success( 'message.' );
 //print_r( $feature->properties );
 
 			// iterate through the name keys, adding pieces until the search returns a result that works, hopefully
-			$geometry = bgeo()->new_geometry( $feature, 'json' );
+			$geometry = bgeo()->new_geometry( $feature, 'json', TRUE );
 			$search_name = self::centroid( $geometry )->latlon;
 			foreach ( $args->namekeys as $name_key )
 			{
 				$search_name .= ' ' . str_replace( '|', ' ', preg_replace( '/[0-9]*/', '', $feature->properties->$name_key ) );
 				$locations = bgeo()->admin()->posts()->locationlookup( $search_name );
 
-				echo "\nSearching for $search_name";
+				WP_CLI::line( "Searching for $search_name" );
 
 				//print_r( $feature->properties );
 
@@ -117,7 +147,7 @@ WP_CLI::success( 'message.' );
 
 					if ( $match )
 					{
-						echo "\nMatched";
+						WP_CLI::line( "Matched" );
 						$error->matched++;
 
 						//insert this geo
@@ -138,7 +168,7 @@ WP_CLI::success( 'message.' );
 						break 2;
 					}
 
-					echo "\nNOT Matched";
+					WP_CLI::warning( "NOT Matched" );
 				}
 			}
 
@@ -152,14 +182,11 @@ WP_CLI::success( 'message.' );
 				$error->unmatched++;
 				$error->unmatched_list[] = $search_name;
 			}
-			echo "\n\n";
+			WP_CLI::line( "\n\n" );
 		}
 
-		// explicitly clean up vars to save memory
-		unset( $source );
-
 		// return any errors
-		return $error;
+		WP_CLI::success( 'Done! ' . print_r( $error, TRUE ) );
 	}
 
 	private function match( $location, $geometry, $woe_types, $recursion = FALSE )
@@ -169,27 +196,27 @@ WP_CLI::success( 'message.' );
 			is_wp_error( $location )
 		)
 		{
-			echo "\nLocation NOT valid";
+			WP_CLI::warning( "Location NOT valid" );
 			return FALSE;
 		}
 
 		// is the centroid of this looked up location inside the source geography envelope?
 		if ( ! self::contains( $geometry, (object) array( 'lon' => $location->point_lon, 'lat' => $location->point_lat ) ) )
 		{
-			echo "\nLocation NOT coincident";
+			WP_CLI::warning( "Location NOT coincident" );
 			return FALSE;
 		}
-		echo "\nLocation is coincident";
+		WP_CLI::warning( "Location NOT coincident" );
 
 		// is the found location a valid WOE type?
 		if ( in_array( (int) $location->api_raw->placeTypeName->code, $woe_types ) )
 		{
-			echo "\nWOEID type is valid";
+			WP_CLI::line( "WOEID type is valid" );
 			return $location;
 		}
 		elseif ( ! $recursion )
 		{
-			echo "\nWOEID type is NOT valid ({$location->api_raw->placeTypeName->code}), recursing into belongtos";
+			WP_CLI::warning( "WOEID type is NOT valid ({$location->api_raw->placeTypeName->code}), recursing into belongtos" );
 			foreach ( $location->belongtos as $belongto )
 			{
 				if ( 'woeid' != $belongto->api )
@@ -210,7 +237,7 @@ WP_CLI::success( 'message.' );
 	{
 		if ( 'woeid' != $location->api )
 		{
-			echo "\ninsert_or_merge_geo requires a WOEID, returning without action";
+			WP_CLI::line( "insert_or_merge_geo requires a WOEID, returning without action" );
 			return FALSE;
 		}
 
@@ -229,7 +256,7 @@ WP_CLI::success( 'message.' );
 		if ( ! $existing )
 		{
 			// insert if this is the first try at this WOEID
-			echo "\ninserting new row";
+			WP_CLI::line( "inserting new row" );
 			self::insert_row( $data );
 		}
 		else
@@ -240,7 +267,7 @@ WP_CLI::success( 'message.' );
 			rsort( $existing->woe_belongtos );
 			$var = array_filter( array_unique( $existing->woe_belongtos ) );
 	
-			echo "\nupdating existing row";
+			WP_CLI::line( "updating existing row" );
 			self::insert_row( $existing );
 		}
 
@@ -248,7 +275,7 @@ WP_CLI::success( 'message.' );
 		{
 			foreach ( $data->woe_belongtos as $woeid )
 			{
-				echo "\nrecursing belongtos with $woeid";
+				WP_CLI::line( "recursing belongtos with $woeid" );
 				self::insert_or_merge_geo( bgeo()->new_geo_by_woeid( $woeid ), $src, $geometry, TRUE );
 			}
 		}
@@ -289,12 +316,13 @@ WP_CLI::success( 'message.' );
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
+		WP_CLI::warning( 'Don\'t be surprised by error messages about duplicate primary keys. Other errors might be an issue, though...' );
 		return dbDelta( "
 			CREATE TABLE " . self::get_table_name() . " (
 				`woeid` int(16) unsigned NOT NULL,
 				`woe_raw` text NOT NULL,
 				`woe_belongtos` text NOT NULL,
-				`bgeo_geometry` geometrycollection NOT NULL
+				`bgeo_geometry` geometrycollection NOT NULL,
 				PRIMARY KEY (`woeid`)
 			) ENGINE=MyISAM $charset_collate;
 		" );
@@ -325,7 +353,7 @@ WP_CLI::success( 'message.' );
 		// convert the geometry into a proper object
 		if ( ! empty( $row->bgeo_geometry ) )
 		{
-			$row->bgeo_geometry = bgeo()->new_geometry( $row->bgeo_geometry, 'wkt' );
+			$row->bgeo_geometry = bgeo()->new_geometry( $row->bgeo_geometry, 'wkt', TRUE );
 		}
 
 		// unserialize the pieces
@@ -341,15 +369,13 @@ WP_CLI::success( 'message.' );
 	{
 		self::maybe_create_table();
 
-		global $wpdb;
 		if ( empty( $data->bgeo_geometry ) )
 		{
-			echo "\n ERROR: Empty geometry!\n\n";
-			print_r( $data );
+			WP_CLI::error( "Empty geometry! " . print_r( $data ) );
 			return FALSE;
-			echo "\n\n";
 		}
 
+		global $wpdb;
 		$sql = $wpdb->prepare(
 			'INSERT INTO ' . self::get_table_name() . '
 			(
@@ -362,13 +388,13 @@ WP_CLI::success( 'message.' );
 				\'%1$s\',
 				\'%2$s\',
 				\'%3$s\',
-				GeomFromText( "%4$s" ),
-				\'%5$s\'
+				GeomFromText( "%4$s" )
 			)
 			ON DUPLICATE KEY UPDATE
 				woeid = VALUES( woeid ),
 				woe_raw = VALUES( woe_raw ),
-				woe_belongtos = VALUES( woe_belongtos )
+				woe_belongtos = VALUES( woe_belongtos ),
+				bgeo_geometry = VALUES( bgeo_geometry )
 			',
 			$data->woeid,
 			maybe_serialize( $data->woe_raw ),
@@ -425,7 +451,7 @@ WP_CLI::success( 'message.' );
 			'geometry' => json_decode( self::maybe_simplify( $geo->bgeo_geometry )->out( 'json' ) ),
 		);
 
-		echo "\nExporting $out_file";
+		WP_CLI::line( "Exporting $out_file" );
 		file_put_contents( $out_file, self::json_encode( $output ) );
 	}
 
@@ -455,7 +481,7 @@ WP_CLI::success( 'message.' );
 		{
 			if ( ! mkdir( $log_path, 0755, TRUE ) )
 			{
-				echo "\nCan't create log file directory";
+				WP_CLI::error( "Can't create log file directory" );
 				return FALSE;
 			}
 		}
@@ -465,7 +491,7 @@ WP_CLI::success( 'message.' );
 		$log_handle = fopen( $log_file, 'w' );
 		if ( ! $log_handle )
 		{
-			echo "\nCan't create log file directory";
+			WP_CLI::error( "Can't create log file directory" );
 			return FALSE;
 		}
 
@@ -508,7 +534,7 @@ WP_CLI::success( 'message.' );
 		// get the original area for comparison later
 		$orig_area = $geometry->envelope()->area();
 
-		echo "\nsimp orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area";
+		WP_CLI::line( "simp orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area" );
 
 		$buffer_factor = 1.09;
 		$buffer_buffer_factor = 0.020;
@@ -517,7 +543,7 @@ WP_CLI::success( 'message.' );
 
 		do
 		{
-			echo "\nsimp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )";
+			WP_CLI::line( "nsimp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )" );
 
 			$simple_geometry = clone $geometry;
 			$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
@@ -530,14 +556,14 @@ WP_CLI::success( 'message.' );
 		}
 		while ( $orig_area > $simple_area );
 
-		echo "\nsimp simp: " . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->envelope()->area() . " area";
+		WP_CLI::line( "simp simp: " . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->envelope()->area() . " area" );
 
 		return $simple_geometry;
 	}
 
 	private function merge_into_one( $geometry )
 	{
-		echo "\nmerge orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area";
+		WP_CLI::line( "merge orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area" );
 
 		// break the geometry into sub-components
 		$parts = $geometry->getComponents();
@@ -554,7 +580,7 @@ WP_CLI::success( 'message.' );
 		foreach ( $parts as $k => $part )
 		{
 			$whole = $whole->union( $part );
-			echo "\nmerge step " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area";
+			WP_CLI::line( "merge step " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area" );
 		}
 
 		// return the merged result
@@ -579,7 +605,7 @@ WP_CLI::success( 'message.' );
 		$bigenvelope = $geometry->buffer( 1.05 )->envelope();
 
 		// create a point geo from the provided point lat and lon
-		$point = bgeo()->new_geometry( 'POINT (' . $point->lon . ' ' . $point->lat . ')', 'wkt' );
+		$point = bgeo()->new_geometry( 'POINT (' . $point->lon . ' ' . $point->lat . ')', 'wkt', TRUE );
 
 		// is the point inside the geo?
 		return $bigenvelope->contains( $point );
