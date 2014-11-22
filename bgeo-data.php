@@ -308,8 +308,9 @@ class bGeo_Data extends WP_CLI_Command
 				$unioned_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
 				$existing->bgeo_geometry = $unioned_geometry;
 			}
-			catch (Exception $e)
+			catch ( Exception $e )
 			{
+				WP_CLI::error( "Caught exception while trying to union geometries near __FILE__:__LINE__." );
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
 			}
 			$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
@@ -610,9 +611,10 @@ class bGeo_Data extends WP_CLI_Command
 				$unioned_geometry = self::merge_into_one( $geometry );
 				$geometry = $unioned_geometry;
 			}
-			catch (Exception $e)
+			catch ( Exception $e )
 			{
 				// what else can I do?
+				WP_CLI::error( "Caught exception while trying to union geometries near __FILE__:__LINE__." );
 				$geometry = self::reduce( $geometry );
 			}
 
