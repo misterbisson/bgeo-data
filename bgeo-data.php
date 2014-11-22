@@ -305,21 +305,35 @@ class bGeo_Data extends WP_CLI_Command
 		else
 		{
 			// we've been here before, merge the parts and update
+			// attempt to union the geometry
 			try
 			{
-				// @TODO: this has started fatalling with exceptions. 
+				// @TODO: this has started fatalling with exceptions.
 				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
-				$unioned_geometry = self::merge_into_one( $existing->bgeo_geometry->union( $data->bgeo_geometry ) );
+				$unioned_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
 				$existing->bgeo_geometry = $unioned_geometry;
 			}
 			catch ( Exception $e )
 			{
-				WP_CLI::warning( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
+				WP_CLI::warning( "Caught exception while trying to union() geometries near " . __FILE__ . ':' . __LINE__ . '.' );
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
 			}
-			$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
+
+			// attempt to merge the unioned geometry
+			try
+			{
+				// @TODO: this has started fatalling with exceptions.
+				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
+				$unioned_geometry = self::merge_into_one( $existing->bgeo_geometry );
+				$existing->bgeo_geometry = $unioned_geometry;
+			}
+			catch ( Exception $e )
+			{
+				WP_CLI::warning( "Caught exception while trying to merge_into_one() near " . __FILE__ . ':' . __LINE__ . '.' );
+			}
+
 			$existing->woe_belongtos = self::sanitize_belongtos( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) );
-	
+
 			WP_CLI::line( "updating existing row" );
 			self::insert_row( $existing );
 		}
@@ -610,7 +624,7 @@ class bGeo_Data extends WP_CLI_Command
 			// try to reduce it further by unioning the pieces
 			try
 			{
-				// @TODO: this has started fatalling with exceptions. 
+				// @TODO: this has started fatalling with exceptions.
 				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
 				$unioned_geometry = self::merge_into_one( $geometry );
 				$geometry = $unioned_geometry;
@@ -618,7 +632,7 @@ class bGeo_Data extends WP_CLI_Command
 			catch ( Exception $e )
 			{
 				// what else can I do?
-				WP_CLI::warning( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
+				WP_CLI::warning( "Caught exception while trying to merge_into_one() near " . __FILE__ . ':' . __LINE__ . '.' );
 				$geometry = self::reduce( $geometry );
 			}
 
@@ -661,7 +675,7 @@ class bGeo_Data extends WP_CLI_Command
 		return $simple_geometry;
 	}
 
-	private function merge_into_one( $geometry )
+	private function merge_into_one( $geometry, $recursion = FALSE )
 	{
 		WP_CLI::line( "merge orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area" );
 
@@ -676,15 +690,44 @@ class bGeo_Data extends WP_CLI_Command
 
 		// merge the parts into a single whole
 		$whole = $parts[0];
+		$extras = FALSE;
 		unset( $parts[0] );
 		foreach ( $parts as $k => $part )
 		{
-			$whole = $whole->union( $part );
-			WP_CLI::line( "merge step " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . " area" );
+			// attempt to union the geometry
+			try
+			{
+				// @TODO: this has started fatalling with exceptions.
+				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
+				$unioned_geometry = $whole->union( $part );
+				$whole = $unioned_geometry;
+				WP_CLI::line( 'merge step ' . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . ' area' );
+			}
+			catch ( Exception $e )
+			{
+				WP_CLI::warning( 'Caught exception while trying to union() geometries near ' . __FILE__ . ':' . __LINE__ . ",\nstep " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . ' area' );
+
+				if ( ! $extras )
+				{
+					$extras = $part;
+				}
+				else
+				{
+					$extras = self::reduce( array( $extras, $part ) );
+				}
+
+				// now take a big leap of faith and try merging thest extras
+				if ( ! $recursion )
+				{
+					$extras = self::merge_into_one( $extras, TRUE );
+				}
+
+				WP_CLI::warning( 'Extra items ' . $k . ': ' . $extras->geometryType() . ': ' . count( (array) $extras->getComponents() ) . ' components with ' . $extras->area() . ' area' );
+			}
 		}
 
 		// return the merged result
-		return $whole;
+		return self::reduce( array( $whole, $extras ) );
 	}
 
 	private function centroid( $geometry )
