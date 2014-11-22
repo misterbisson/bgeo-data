@@ -627,8 +627,8 @@ class bGeo_Data extends WP_CLI_Command
 			),
 			array(
 				"\"features\":\n",
-				"]]\n,\n[[",
-				"}\n,\n{",
+				"]]\n,\n\t[[",
+				"}\n,\n\t{",
 				",\n\"geometry\"",
 			),
 			json_encode( $src )
