@@ -145,7 +145,7 @@ class bGeo_Data extends WP_CLI_Command
 				) );
 				$error->unmatched++;
 				$error->unmatched_list[] = ( $k + $args->offset ) . ' in ' . $args->source;
-				WP_CLI::error( "Failed to load geometry from feature " . ( $k + $args->offset ) . " in $args->source" );
+				WP_CLI::warning( "Failed to load geometry from feature " . ( $k + $args->offset ) . " in $args->source" );
 				continue;
 			}
 			$geometry = self::simplify( $geometry );
@@ -166,7 +166,7 @@ class bGeo_Data extends WP_CLI_Command
 					) );
 					$error->unmatched++;
 					$error->unmatched_list[] = ( $k + $args->offset ) . ' in ' . $args->source;
-					WP_CLI::error( "No locations found for $search_name, feature " . ( $k + $args->offset ) . " in $args->source" );
+					WP_CLI::warning( "No locations found for $search_name, feature " . ( $k + $args->offset ) . " in $args->source" );
 
 					continue;
 				}
@@ -309,12 +309,12 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				// @TODO: this has started fatalling with exceptions. 
 				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
-				$unioned_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
+				$unioned_geometry = self::merge_into_one( $existing->bgeo_geometry->union( $data->bgeo_geometry ) );
 				$existing->bgeo_geometry = $unioned_geometry;
 			}
 			catch ( Exception $e )
 			{
-				WP_CLI::error( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
+				WP_CLI::warning( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
 			}
 			$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
@@ -427,7 +427,7 @@ class bGeo_Data extends WP_CLI_Command
 
 		if ( empty( $data->bgeo_geometry ) )
 		{
-			WP_CLI::error( "Empty geometry! " . print_r( $data ) );
+			WP_CLI::warning( "Empty geometry! " . print_r( $data ) );
 			return FALSE;
 		}
 
@@ -618,7 +618,7 @@ class bGeo_Data extends WP_CLI_Command
 			catch ( Exception $e )
 			{
 				// what else can I do?
-				WP_CLI::error( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
+				WP_CLI::warning( "Caught exception while trying to union geometries near " . __FILE__ . ':' . __LINE__ . '.' );
 				$geometry = self::reduce( $geometry );
 			}
 
