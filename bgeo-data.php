@@ -19,7 +19,11 @@ wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate natur
 
 wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_lakes.geojson --namekeys=name,featurecla,name_alt --woetypes=15,37,38
 
-wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/e_10m_admin_1_states_provinces_lakes_shp.geojson --namekeys=name,admin,name_alt,name_local --woetypes=8
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_admin_1_states_provinces_lakes_shp.geojson --namekeys=name,admin,name_alt,name_local --woetypes=8 --offset=0 --limit=1400
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_admin_1_states_provinces_lakes_shp.geojson --namekeys=name,admin,name_alt,name_local --woetypes=8 --offset=1400 --limit=1400
+
+wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_admin_1_states_provinces_lakes_shp.geojson --namekeys=name,admin,name_alt,name_local --woetypes=8 --offset=2800 --limit=1400
 
 wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate naturalearthdata/ne_10m_admin_0_countries_lakes.geojson --namekeys=admin,sovereignt --woetypes=12
 */
@@ -182,7 +186,6 @@ class bGeo_Data extends WP_CLI_Command
 						//insert this geo
 						if ( ! self::insert_or_merge_geo(
 							$location,
-							$feature,
 							$geometry
 						) )
 						{
@@ -262,7 +265,7 @@ class bGeo_Data extends WP_CLI_Command
 		return FALSE;
 	}
 
-	private function insert_or_merge_geo( $location, $src, $geometry, $recursion = FALSE )
+	private function insert_or_merge_geo( $location, $geometry, $recursion = FALSE )
 	{
 		if ( 'woeid' != $location->api )
 		{
@@ -271,7 +274,6 @@ class bGeo_Data extends WP_CLI_Command
 		}
 
 		// the data to insert or merge
-		$parts_key = md5( serialize( $src ) );
 		$data = (object) array(
 			'woeid' => $location->api_id,
 			'woe_raw' => $location->api_raw,
@@ -316,7 +318,7 @@ class bGeo_Data extends WP_CLI_Command
 			foreach ( $data->woe_belongtos as $woeid )
 			{
 				WP_CLI::line( "recursing belongtos with $woeid" );
-				self::insert_or_merge_geo( bgeo()->new_geo_by_woeid( $woeid ), $src, $geometry, TRUE );
+				self::insert_or_merge_geo( bgeo()->new_geo_by_woeid( $woeid ), $geometry, TRUE );
 			}
 		}
 
