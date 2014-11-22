@@ -134,12 +134,12 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				self::log( array(
 					'source' => basename( $args->source ),
-					'error' => 'can\'t load geometry',
-					'item' => $k . ' in ' . $args->source,
+					'error' => 'Can\'t load geometry from feature',
+					'item' => "$search_name  (feature #$k)",
 				) );
 				$error->unmatched++;
 				$error->unmatched_list[] = $k . ' in ' . $args->source;
-				WP_CLI::error( "Failed to create geometry from item $k in $args->source" );
+				WP_CLI::error( "Failed to load geometry from feature $k in $args->source" );
 				continue;
 			}
 			$geometry = self::simplify( $geometry );
@@ -155,12 +155,12 @@ class bGeo_Data extends WP_CLI_Command
 				{
 					self::log( array(
 						'source' => basename( $args->source ),
-						'error' => 'no locations found',
-						'item' => "$search_name  ( $k ) in $args->source",
+						'error' => 'API returned no results for search',
+						'item' => "$search_name  (feature #$k)",
 					) );
 					$error->unmatched++;
 					$error->unmatched_list[] = $k . ' in ' . $args->source;
-					WP_CLI::error( "No locations found for $search_name, item $k in $args->source" );
+					WP_CLI::error( "No locations found for $search_name, feature $k in $args->source" );
 
 					continue;
 				}
@@ -203,8 +203,8 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				self::log( array(
 					'source' => basename( $args->source ),
-					'error' => 'no match',
-					'item' => $search_name,
+					'error' => 'No API results matched feature',
+					'item' => "$search_name  (feature #$k)",
 				) );
 				$error->unmatched++;
 				$error->unmatched_list[] = $search_name;
