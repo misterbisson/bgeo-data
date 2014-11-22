@@ -289,9 +289,18 @@ class bGeo_Data extends WP_CLI_Command
 		else
 		{
 			// we've been here before, merge the parts and update
+			try
+			{
+				// @TODO: this has started fatalling with exceptions. 
+				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
+				$unioned_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
+				$existing->bgeo_geometry = $unioned_geometry;
+			}
+			catch
+			{
+				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
+			}
 			$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
-			// @TODO: this has started throwing errors. Using the workaround above for now, but why did the errors just appear?
-			//$existing->bgeo_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
 			$existing->woe_belongtos = array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos );
 			rsort( $existing->woe_belongtos );
 			$var = array_filter( array_unique( $existing->woe_belongtos ) );
@@ -550,11 +559,24 @@ class bGeo_Data extends WP_CLI_Command
 		// merge multipolygons into a single polygon, if possible
 		if ( 'MultiPolygon' == $geometry->geometryType() )
 		{
+			// reduce complexity
 			$geometry = self::reduce( $geometry );
-			$geometry = self::reduce( $geometry );
-			// this is throwing fatals for some reason.
-			// commented out and using the above for now.
-			// $geometry = self::merge_into_one( $geometry );
+
+			// try to reduce it further by unioning the pieces
+			try
+			{
+				// @TODO: this has started fatalling with exceptions. 
+				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
+				$unioned_geometry = self::merge_into_one( $geometry );
+				$geometry = $unioned_geometry;
+			}
+			catch
+			{
+				// what else can I do?
+				$geometry = self::reduce( $geometry );
+			}
+
+			// simplify the individual components of the resulting geometry
 			$geometry = self::simplify( $geometry );
 		}
 

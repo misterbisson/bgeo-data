@@ -1,0 +1,5 @@
+source,error,item
+ne_10m_lakes.geojson,"no match","38.072160069939 30.852411054569 Egridir Lake "
+ne_10m_lakes.geojson,"no match","37.781933692624 31.503098388906 Beysehir Lake "
+ne_10m_lakes.geojson,"no match","65.744751634171 33.542382281127 Engozero Lake "
+ne_10m_lakes.geojson,"no locations found","66.198447907667 31.157320799385 Pjrvi  ( 3 ) in naturalearthdata/ne_10m_lakes.geojson"
