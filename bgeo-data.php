@@ -114,11 +114,13 @@ class bGeo_Data extends WP_CLI_Command
 			elseif ( isset( $args->offset ) )
 			{
 				$source->features = array_slice( $source->features, $args->offset );
+				$args->limit = 0;
 			}
 			// just the limit is set
 			else
 			{
 				$source->features = array_slice( $source->features, 0, $args->limit );
+				$args->offset = 0;
 			}
 		}
 
@@ -134,12 +136,12 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				self::log( array(
 					'source' => basename( $args->source ),
-					'error' => 'Can\'t load geometry from feature',
-					'item' => "$search_name  (feature #$k)",
+					'status' => 'Can\'t load geometry from feature',
+					'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
 				) );
 				$error->unmatched++;
-				$error->unmatched_list[] = $k . ' in ' . $args->source;
-				WP_CLI::error( "Failed to load geometry from feature $k in $args->source" );
+				$error->unmatched_list[] = ( $k + $args->offset ) . ' in ' . $args->source;
+				WP_CLI::error( "Failed to load geometry from feature " . ( $k + $args->offset ) . " in $args->source" );
 				continue;
 			}
 			$geometry = self::simplify( $geometry );
@@ -155,12 +157,12 @@ class bGeo_Data extends WP_CLI_Command
 				{
 					self::log( array(
 						'source' => basename( $args->source ),
-						'error' => 'API returned no results for search',
-						'item' => "$search_name  (feature #$k)",
+						'status' => 'API returned no results for search',
+						'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
 					) );
 					$error->unmatched++;
-					$error->unmatched_list[] = $k . ' in ' . $args->source;
-					WP_CLI::error( "No locations found for $search_name, feature $k in $args->source" );
+					$error->unmatched_list[] = ( $k + $args->offset ) . ' in ' . $args->source;
+					WP_CLI::error( "No locations found for $search_name, feature " . ( $k + $args->offset ) . " in $args->source" );
 
 					continue;
 				}
@@ -203,8 +205,8 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				self::log( array(
 					'source' => basename( $args->source ),
-					'error' => 'No API results matched feature',
-					'item' => "$search_name  (feature #$k)",
+					'status' => 'No API results matched feature',
+					'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
 				) );
 				$error->unmatched++;
 				$error->unmatched_list[] = $search_name;
