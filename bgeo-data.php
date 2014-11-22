@@ -148,9 +148,22 @@ class bGeo_Data extends WP_CLI_Command
 			foreach ( $args->namekeys as $name_key )
 			{
 				$search_name .= ' ' . str_replace( '|', ' ', preg_replace( '/[0-9]*/', '', $feature->properties->$name_key ) );
-				$locations = bgeo()->admin()->posts()->locationlookup( $search_name );
-
 				WP_CLI::line( "Searching for $search_name" );
+
+				$locations = bgeo()->admin()->posts()->locationlookup( $search_name );
+				if ( ! is_array( $locations ) )
+				{
+					self::log( array(
+						'source' => basename( $args->source ),
+						'error' => 'no locations found for ' . $search_name,
+						'item' => $k . ' in ' . $args->source,
+					) );
+					$error->unmatched++;
+					$error->unmatched_list[] = $k . ' in ' . $args->source;
+					WP_CLI::error( "No locations found for $search_name, item $k in $args->source" );
+
+					continue;
+				}
 
 				//print_r( $feature->properties );
 
@@ -276,7 +289,9 @@ class bGeo_Data extends WP_CLI_Command
 		else
 		{
 			// we've been here before, merge the parts and update
-			$existing->bgeo_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
+			$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
+			// @TODO: this has started throwing errors. Using the workaround above for now, but why did the errors just appear?
+			//$existing->bgeo_geometry = $existing->bgeo_geometry->union( $data->bgeo_geometry );
 			$existing->woe_belongtos = array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos );
 			rsort( $existing->woe_belongtos );
 			$var = array_filter( array_unique( $existing->woe_belongtos ) );
@@ -471,12 +486,11 @@ class bGeo_Data extends WP_CLI_Command
 
 	private function log( $data )
 	{
+		static $log_handle = FALSE;
+
 		// get the file handle on the first run
 		if ( ! $log_handle )
 		{
-			// strangely, this assignment has to be done in two lines, 
-			// it throws an error when assigning in one step.
-			static $log_handle = FALSE;
 			$log_handle = self::get_log_handle();
 
 			// insert the array keys as column headers in the CSV, just on the first pass
@@ -624,6 +638,12 @@ class bGeo_Data extends WP_CLI_Command
 		// is the point inside the geo?
 		return $bigenvelope->contains( $point );
 	}
+
+	public function reduce( $components )
+	{
+		return geoPHP::geometryReduce( $components );
+	}//end new_geometry
+
 }//END class
 
 WP_CLI::add_command( 'bgeodata', 'bGeo_Data' );
