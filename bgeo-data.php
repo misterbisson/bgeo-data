@@ -155,8 +155,8 @@ class bGeo_Data extends WP_CLI_Command
 				{
 					self::log( array(
 						'source' => basename( $args->source ),
-						'error' => 'no locations found for ' . $search_name,
-						'item' => $k . ' in ' . $args->source,
+						'error' => 'no locations found',
+						'item' => "$search_name  ( $k ) in $args->source",
 					) );
 					$error->unmatched++;
 					$error->unmatched_list[] = $k . ' in ' . $args->source;
@@ -243,7 +243,7 @@ class bGeo_Data extends WP_CLI_Command
 		}
 		elseif ( ! $recursion )
 		{
-			WP_CLI::warning( "WOEID type is NOT valid ({$location->api_raw->placeTypeName->code}), recursing into belongtos" );
+			WP_CLI::warning( "WOEID type is NOT valid ( {$location->api_raw->placeTypeName->code} ), recursing into belongtos" );
 			foreach ( $location->belongtos as $belongto )
 			{
 				if ( 'woeid' != $belongto->api )
