@@ -35,7 +35,7 @@ class bGeo_Data extends WP_CLI_Command
 			return;
 		}
 
-		// attempt to read the source file
+		// attempt to read the source file$
 		$source = json_decode( file_get_contents( $args[0] ) );
 
 		WP_CLI::success( count( $source->features ) . ' features in ' . $args[0] );
@@ -123,13 +123,27 @@ class bGeo_Data extends WP_CLI_Command
 		}
 
 		// iterate through the source, separate features
-		foreach ( $source->features as $feature )
+		foreach ( $source->features as $k => $feature )
 		{
 
 //print_r( $feature->properties );
 
 			// iterate through the name keys, adding pieces until the search returns a result that works, hopefully
 			$geometry = bgeo()->new_geometry( $feature, 'json', TRUE );
+			if ( ! is_object( $geometry ) )
+			{
+				self::log( array(
+					'source' => basename( $args->source ),
+					'error' => 'can\'t load geometry',
+					'item' => $k . ' in ' . $args->source,
+				) );
+				$error->unmatched++;
+				$error->unmatched_list[] = $k . ' in ' . $args->source;
+				WP_CLI::error( "Failed to create geometry from item $k in $args->source" );
+				continue;
+			}
+			$geometry = self::simplify( $geometry );
+
 			$search_name = self::centroid( $geometry )->latlon;
 			foreach ( $args->namekeys as $name_key )
 			{
@@ -154,7 +168,7 @@ class bGeo_Data extends WP_CLI_Command
 						if ( ! self::insert_or_merge_geo(
 							$location,
 							$feature,
-							self::simplify( $geometry )
+							$geometry
 						) )
 						{
 							$error->notinserted++;
@@ -462,7 +476,7 @@ class bGeo_Data extends WP_CLI_Command
 		{
 			// strangely, this assignment has to be done in two lines, 
 			// it throws an error when assigning in one step.
-			static $log_handle = NULL;
+			static $log_handle = FALSE;
 			$log_handle = self::get_log_handle();
 
 			// insert the array keys as column headers in the CSV, just on the first pass
@@ -543,7 +557,7 @@ class bGeo_Data extends WP_CLI_Command
 
 		do
 		{
-			WP_CLI::line( "nsimp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )" );
+			WP_CLI::line( "simp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )" );
 
 			$simple_geometry = clone $geometry;
 			$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
