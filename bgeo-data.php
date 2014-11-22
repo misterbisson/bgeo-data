@@ -255,10 +255,6 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				WP_CLI::line( "WOEID type is valid" );
 			}
-			else
-			{
-				echo '.';
-			}
 			return $location;
 		}
 		elseif ( ! $recursion )
@@ -717,7 +713,7 @@ class bGeo_Data extends WP_CLI_Command
 		}
 		else
 		{
-			echo '.';
+			WP_CLI::line( '' );
 		}
 
 		return $simple_geometry;
@@ -745,7 +741,7 @@ class bGeo_Data extends WP_CLI_Command
 
 		// merge the parts into a single whole
 		$whole = $parts[0];
-		$extras = $whole->centroid();
+		$extras = FALSE;
 		unset( $parts[0] );
 		foreach ( $parts as $k => $part )
 		{
@@ -767,10 +763,21 @@ class bGeo_Data extends WP_CLI_Command
 			}
 			catch ( Exception $e )
 			{
+				if ( ! self::VERBOSE )
+				{
+					WP_CLI::line( '' );
+				}
 				WP_CLI::warning( 'Caught exception while trying to union() geometries near ' . __FILE__ . ':' . __LINE__ . ",\nstep " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . ' area' );
 				WP_CLI::warning( 'Attempted to union ' . $part->geometryType() . ' into ' . $whole->geometryType() . '.' );
 
-				$extras = self::reduce( array( $extras, $part ) );
+				if ( ! $extras )
+				{
+					$extras = $part;
+				}
+				else
+				{
+					$extras = self::reduce( array( $extras, $part ) );
+				}
 
 				// now take a big leap of faith and try merging thest extras
 				if ( ! $recursion )
@@ -778,12 +785,34 @@ class bGeo_Data extends WP_CLI_Command
 					$extras = self::merge_into_one( $extras, TRUE );
 				}
 
+				if ( ! self::VERBOSE )
+				{
+					WP_CLI::line( '' );
+				}
 				WP_CLI::warning( 'Extra items on step ' . $k . ': ' . $extras->geometryType() . ': ' . count( (array) $extras->getComponents() ) . ' components with ' . $extras->area() . ' area' );
 			}
 		}
 
+		if (
+			is_object( $extras ) &&
+			is_callable( array( $extras, 'getComponents' ) ) &&
+			count( (array) $extras->getComponents() )
+		)
+		{
+			$whole = self::reduce( array( $whole, $extras ) );
+		}
+
+		if ( 1 < self::VERBOSE )
+		{
+			WP_CLI::line( "merge merged: " . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->envelope()->area() . " area" );
+		}
+		else
+		{
+			echo ".\n";
+		}
+
 		// return the merged result
-		return self::reduce( array( $whole, $extras ) );
+		return $whole;
 	}
 
 	private function centroid( $geometry )
