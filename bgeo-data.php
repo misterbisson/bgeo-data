@@ -499,7 +499,10 @@ class bGeo_Data extends WP_CLI_Command
 	private function get_lock( $woeid )
 	{
 		$i = 0;
-		while ( $lock = wp_cache_get( $woeid, 'bgeo-data-lock', TRUE ) )
+		while (
+			$lock = wp_cache_get( $woeid, 'bgeo-data-lock', TRUE ) &&
+			(bool) $lock
+		)
 		{
 			if ( 1000 < $i )
 			{
