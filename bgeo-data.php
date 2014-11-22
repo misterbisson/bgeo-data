@@ -31,6 +31,8 @@ wp --url=bgeo.me --require=./bgeo-data.php bgeodata simplify_and_correlate natur
 class bGeo_Data extends WP_CLI_Command
 {
 
+	const VERBOSE = 0;
+
 	public function count_features( $args, $assoc_args )
 	{
 		if ( empty( $args ) )
@@ -180,7 +182,14 @@ class bGeo_Data extends WP_CLI_Command
 
 					if ( $match )
 					{
-						WP_CLI::line( "Matched" );
+						if ( self::VERBOSE )
+						{
+							WP_CLI::line( "Matched" );
+						}
+						else
+						{
+							echo '.';
+						}
 						$error->matched++;
 
 						//insert this geo
@@ -242,7 +251,14 @@ class bGeo_Data extends WP_CLI_Command
 		// is the found location a valid WOE type?
 		if ( in_array( (int) $location->api_raw->placeTypeName->code, $woe_types ) )
 		{
-			WP_CLI::line( "WOEID type is valid" );
+			if ( self::VERBOSE )
+			{
+				WP_CLI::line( "WOEID type is valid" );
+			}
+			else
+			{
+				echo '.';
+			}
 			return $location;
 		}
 		elseif ( ! $recursion )
@@ -279,7 +295,7 @@ class bGeo_Data extends WP_CLI_Command
 	{
 		if ( 'woeid' != $location->api )
 		{
-			WP_CLI::line( "insert_or_merge_geo requires a WOEID, returning without action" );
+			WP_CLI::warning( "insert_or_merge_geo requires a WOEID, returning without action" );
 			return FALSE;
 		}
 
@@ -299,7 +315,7 @@ class bGeo_Data extends WP_CLI_Command
 		if ( ! $existing )
 		{
 			// insert if this is the first try at this WOEID
-			WP_CLI::line( "inserting new row" );
+			WP_CLI::line( "Inserting new row for WOEID $location->api_id" );
 			self::insert_row( $data );
 		}
 		else
@@ -316,7 +332,9 @@ class bGeo_Data extends WP_CLI_Command
 			catch ( Exception $e )
 			{
 				WP_CLI::warning( "Caught exception while trying to union() geometries near " . __FILE__ . ':' . __LINE__ . '.' );
+				WP_CLI::warning( 'Attempted to union ' . $data->geometryType() . ' into ' . $existing->geometryType() . '.' );
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
+				WP_CLI::warning( 'Instead reduced to ' . $existing->geometryType() . ' with ' . count( (array) $existing->getComponents() ) . '.' );
 			}
 
 			// attempt to merge the unioned geometry
@@ -334,7 +352,7 @@ class bGeo_Data extends WP_CLI_Command
 
 			$existing->woe_belongtos = self::sanitize_belongtos( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) );
 
-			WP_CLI::line( "updating existing row" );
+			WP_CLI::line( "Updating existing row for WOEID $location->api_id" );
 			self::insert_row( $existing );
 		}
 
@@ -487,13 +505,21 @@ class bGeo_Data extends WP_CLI_Command
 		$i = 0;
 		while ( $lock = wp_cache_get( $woeid, 'bgeo-data-lock', TRUE ) )
 		{
-			if ( 90 < $i )
+			if ( 1000 < $i )
 			{
-				WP_CLI::warning( "Giving up waiting for lock on $woeid" );
+				WP_CLI::warning( "Giving up waiting for lock on $woeid. Previous lock set " . ( time() - $lock ) . " seconds ago." );
 				break;
 			}
 
-			WP_CLI::warning( "Waiting for lock on $woeid. Previous lock set " . ( time() - $lock ) . " seconds ago.");
+			if ( ! $i )
+			{
+				WP_CLI::warning( "Waiting for lock on $woeid. Previous lock set " . ( time() - $lock ) . " seconds ago." );
+			}
+			else
+			{
+				echo '.';
+			}
+
 			sleep( 2 );
 			$i++;
 		}
@@ -634,6 +660,7 @@ class bGeo_Data extends WP_CLI_Command
 				// what else can I do?
 				WP_CLI::warning( "Caught exception while trying to merge_into_one() near " . __FILE__ . ':' . __LINE__ . '.' );
 				$geometry = self::reduce( $geometry );
+				WP_CLI::warning( 'Instead reduced to ' . $geometry->geometryType() . ' with ' . count( (array) $geometry->getComponents() ) . '.' );
 			}
 
 			// simplify the individual components of the resulting geometry
@@ -648,7 +675,14 @@ class bGeo_Data extends WP_CLI_Command
 		// get the original area for comparison later
 		$orig_area = $geometry->envelope()->area();
 
-		WP_CLI::line( "simp orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area" );
+		if ( 1 < self::VERBOSE )
+		{
+			WP_CLI::line( "simp orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->envelope()->area() . " area" );
+		}
+		else
+		{
+			echo '.';
+		}
 
 		$buffer_factor = 1.09;
 		$buffer_buffer_factor = 0.020;
@@ -657,7 +691,14 @@ class bGeo_Data extends WP_CLI_Command
 
 		do
 		{
-			WP_CLI::line( "simp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )" );
+			if ( 1 < self::VERBOSE )
+			{
+				WP_CLI::line( "simp attempt $iteration with buffer( " . ( $buffer_factor + $buffer_buffer_factor ) . " ) and simplify( $simplify_factor )" );
+			}
+			else
+			{
+				echo '.';
+			}
 
 			$simple_geometry = clone $geometry;
 			$simple_geometry = $simple_geometry->buffer( $buffer_factor + $buffer_buffer_factor )->simplify( $simplify_factor, FALSE )->buffer( $buffer_factor * -1 );
@@ -670,14 +711,28 @@ class bGeo_Data extends WP_CLI_Command
 		}
 		while ( $orig_area > $simple_area );
 
-		WP_CLI::line( "simp simp: " . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->envelope()->area() . " area" );
+		if ( 1 < self::VERBOSE )
+		{
+			WP_CLI::line( "simp simp: " . $simple_geometry->geometryType() . ': ' . count( (array) $simple_geometry->getComponents() ) . ' components with ' . $simple_geometry->envelope()->area() . " area" );
+		}
+		else
+		{
+			echo '.';
+		}
 
 		return $simple_geometry;
 	}
 
 	private function merge_into_one( $geometry, $recursion = FALSE )
 	{
-		WP_CLI::line( "merge orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area" );
+		if ( 1 < self::VERBOSE )
+		{
+			WP_CLI::line( "merge orig: " . $geometry->geometryType() . ': ' . count( (array) $geometry->getComponents() ) . ' components with ' . $geometry->area() . " area" );
+		}
+		else
+		{
+			echo '.';
+		}
 
 		// break the geometry into sub-components
 		$parts = $geometry->getComponents();
@@ -701,11 +756,19 @@ class bGeo_Data extends WP_CLI_Command
 				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
 				$unioned_geometry = $whole->union( $part );
 				$whole = $unioned_geometry;
-				WP_CLI::line( 'merge step ' . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . ' area' );
+				if ( 1 < self::VERBOSE )
+				{
+					WP_CLI::line( 'merge step ' . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . ' area' );
+				}
+				else
+				{
+					echo '.';
+				}
 			}
 			catch ( Exception $e )
 			{
 				WP_CLI::warning( 'Caught exception while trying to union() geometries near ' . __FILE__ . ':' . __LINE__ . ",\nstep " . $k . ': ' . $whole->geometryType() . ': ' . count( (array) $whole->getComponents() ) . ' components with ' . $whole->area() . ' area' );
+				WP_CLI::warning( 'Attempted to union ' . $part->geometryType() . ' into ' . $whole->geometryType() . '.' );
 
 				$extras = self::reduce( array( $extras, $part ) );
 
