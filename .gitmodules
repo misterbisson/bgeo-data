@@ -1,3 +1,0 @@
-[submodule "components/external/geoPHP"]
-	path = components/external/geoPHP
-	url = git@github.com:phayes/geoPHP.git
