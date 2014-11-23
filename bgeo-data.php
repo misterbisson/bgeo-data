@@ -316,6 +316,8 @@ class bGeo_Data extends WP_CLI_Command
 		}
 		else
 		{
+			WP_CLI::line( "Updating existing row for WOEID $location->api_id" );
+
 			// we've been here before, merge the parts and update
 			// attempt to union the geometry
 			try
@@ -348,7 +350,6 @@ class bGeo_Data extends WP_CLI_Command
 
 			$existing->woe_belongtos = self::sanitize_belongtos( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) );
 
-			WP_CLI::line( "Updating existing row for WOEID $location->api_id" );
 			self::insert_row( $existing );
 		}
 
@@ -521,6 +522,12 @@ class bGeo_Data extends WP_CLI_Command
 
 			sleep( 2 );
 			$i++;
+		}
+
+		// if we've been putting dots on the screen, clear the line
+		if ( $i )
+		{
+			WP_CLI::line( '' );
 		}
 
 		wp_cache_set( $woeid, time(), 'bgeo-data-lock', 3600 );
@@ -734,7 +741,7 @@ class bGeo_Data extends WP_CLI_Command
 		}
 
 		// break the geometry into sub-components
-		$parts = $geometry->getComponents();
+		$parts = array_reverse( $geometry->getComponents() );
 
 		// sanity check
 		if ( ! is_array( $parts ) )
