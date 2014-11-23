@@ -388,23 +388,22 @@ class bGeo_Data extends WP_CLI_Command
 				WP_CLI::warning( "Caught exception while trying to union() geometries near " . __FILE__ . ':' . __LINE__ . '.' );
 				WP_CLI::warning( 'Attempted to union ' . $data->bgeo_geometry->geometryType() . ' into ' . $existing->bgeo_geometry->geometryType() . '.' );
 				$existing->bgeo_geometry = self::reduce( array( $existing->bgeo_geometry, $data->bgeo_geometry ) );
-				WP_CLI::warning( 'Instead reduced to ' . $existing->bgeo_geometry->geometryType() . ' with ' . count( (array) $existing->bgeo_geometry->getComponents() ) . '.' );
-			}
+				WP_CLI::warning( 'Instead reduced to ' . $existing->bgeo_geometry->geometryType() . ' with ' . count( (array) $existing->bgeo_geometry->getComponents() ) . ' components.' );
 
-			/* commented out because it's really only necessary when dealing with a crufty database
-			// attempt to merge the unioned geometry
-			try
-			{
-				// @TODO: this has started fatalling with exceptions.
-				// Using the try-catch-reduce workaround for now, but why did the errors just appear?
-				$unioned_geometry = self::merge_into_one( $existing->bgeo_geometry );
-				$existing->bgeo_geometry = $unioned_geometry;
+				// attempt to merge the hack-unioned geometry
+				try
+				{
+					$unioned_geometry = self::merge_into_one( $existing->bgeo_geometry );
+					$existing->bgeo_geometry = $unioned_geometry;
+
+					WP_CLI::warning( 'Finally merged to ' . $existing->bgeo_geometry->geometryType() . ' with ' . count( (array) $existing->bgeo_geometry->getComponents() ) . ' components.' );
+
+				}
+				catch ( Exception $e )
+				{
+					WP_CLI::warning( "Caught exception while trying to merge_into_one() near " . __FILE__ . ':' . __LINE__ . '.' );
+				}
 			}
-			catch ( Exception $e )
-			{
-				WP_CLI::warning( "Caught exception while trying to merge_into_one() near " . __FILE__ . ':' . __LINE__ . '.' );
-			}
-			*/
 
 			$existing->woe_belongtos = self::sanitize_belongtos( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) );
 
@@ -905,7 +904,8 @@ class bGeo_Data extends WP_CLI_Command
 
 	public function reduce( $components )
 	{
-		return geoPHP::geometryReduce( $components );
+		$geometry = new MultiPolygon( $components );
+		return geoPHP::geometryReduce( $geometry );
 	}//end new_geometry
 
 }//END class
