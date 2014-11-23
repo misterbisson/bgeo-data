@@ -47,6 +47,55 @@ class bGeo_Data extends WP_CLI_Command
 		WP_CLI::success( count( $source->features ) . ' features in ' . $args[0] );
 	}
 
+	public function name_features( $args, $assoc_args )
+	{
+		if ( empty( $args ) )
+		{
+			WP_CLI::error( 'No input file was specified.' );
+			return;
+		}
+
+		if ( ! is_array( $assoc_args ) )
+		{
+			$assoc_args = array();
+		}
+
+		$assoc_args['source'] = $args[0];
+		$args = (object) array_intersect_key( $assoc_args, array(
+			'source' => TRUE,
+			'namekeys' => TRUE,
+		) );
+
+		if ( ! isset( $args->source, $args->namekeys  ) )
+		{
+			WP_CLI::error( 'Input file and --namekeys values are required.' );
+			return;
+		}
+
+		$args->namekeys = array_map( 'trim', explode( ',', $args->namekeys ) );
+
+		if ( empty( $args->namekeys ) )
+		{
+			WP_CLI::error( '--namekeys arg has no parsed values' );
+			return;
+		}
+
+		// attempt to read the source file$
+		$source = json_decode( file_get_contents( $args->source ) );
+
+		// iterate through the source, separate features
+		foreach ( $source->features as $k => $feature )
+		{
+
+			$feature_name = implode( ', ' , array_intersect_key( (array) $feature->properties, array_flip( $args->namekeys ) ) );
+			$geometry = bgeo()->new_geometry( $feature, 'json', TRUE );
+			$feature_name .= ' ' . self::centroid( $geometry )->latlon;
+			WP_CLI::line( $k . ': ' . $feature_name );
+		}
+
+		WP_CLI::success( count( $source->features ) . ' features in ' . $args->source );
+	}
+
 	public function simplify_and_correlate( $args, $assoc_args )
 	{
 		if ( empty( $args ) )
