@@ -699,9 +699,6 @@ class bGeo_Data extends WP_CLI_Command
 		// merge multipolygons into a single polygon, if possible
 		if ( 'MultiPolygon' == $geometry->geometryType() )
 		{
-			// reduce complexity
-			$geometry = self::reduce( $geometry );
-
 			// try to reduce it further by unioning the pieces
 			try
 			{
@@ -714,8 +711,7 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				// what else can I do?
 				WP_CLI::warning( "Caught exception while trying to merge_into_one() near " . __FILE__ . ':' . __LINE__ . '.' );
-				$geometry = self::reduce( $geometry );
-				WP_CLI::warning( 'Instead reduced to ' . $geometry->geometryType() . ' with ' . count( (array) $geometry->getComponents() ) . '.' );
+				WP_CLI::warning( 'Geometry is ' . $geometry->geometryType() . ' with ' . count( (array) $geometry->getComponents() ) . ' components.' );
 			}
 
 			// simplify the individual components of the resulting geometry
