@@ -191,7 +191,7 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				self::log( array(
 					'source' => basename( $args->source ),
-					'status' => 'Can\'t load geometry from feature',
+					'status' => 'Can\'t load geometry from feature.',
 					'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
 				) );
 				$error->unmatched++;
@@ -212,7 +212,7 @@ class bGeo_Data extends WP_CLI_Command
 				{
 					self::log( array(
 						'source' => basename( $args->source ),
-						'status' => 'API returned no results for search',
+						'status' => 'API returned no results for search.',
 						'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
 					) );
 					$error->unmatched++;
@@ -239,6 +239,13 @@ class bGeo_Data extends WP_CLI_Command
 						{
 							echo '.';
 						}
+
+						self::log( array(
+							'source' => basename( $args->source ),
+							'status' => 'Success! Matched feature to API result.',
+							'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
+						) );
+
 						$error->matched++;
 
 						//insert this geo
@@ -266,7 +273,7 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				self::log( array(
 					'source' => basename( $args->source ),
-					'status' => 'No API results matched feature',
+					'status' => 'No API results matched feature.',
 					'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
 				) );
 				$error->unmatched++;
@@ -384,6 +391,7 @@ class bGeo_Data extends WP_CLI_Command
 				WP_CLI::warning( 'Instead reduced to ' . $existing->bgeo_geometry->geometryType() . ' with ' . count( (array) $existing->bgeo_geometry->getComponents() ) . '.' );
 			}
 
+			/* commented out because it's really only necessary when dealing with a crufty database
 			// attempt to merge the unioned geometry
 			try
 			{
@@ -396,6 +404,7 @@ class bGeo_Data extends WP_CLI_Command
 			{
 				WP_CLI::warning( "Caught exception while trying to merge_into_one() near " . __FILE__ . ':' . __LINE__ . '.' );
 			}
+			*/
 
 			$existing->woe_belongtos = self::sanitize_belongtos( array_merge( (array) $existing->woe_belongtos, (array) $data->woe_belongtos ) );
 
