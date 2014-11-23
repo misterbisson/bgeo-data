@@ -243,7 +243,7 @@ class bGeo_Data extends WP_CLI_Command
 						self::log( array(
 							'source' => basename( $args->source ),
 							'status' => 'Success! Matched feature to API result.',
-							'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ")",
+							'item' => "$search_name  (feature #" . ( $k + $args->offset ) . ", WOEID: $location->api_id)",
 						) );
 
 						$error->matched++;
