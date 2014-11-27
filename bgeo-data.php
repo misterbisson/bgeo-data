@@ -86,7 +86,6 @@ class bGeo_Data extends WP_CLI_Command
 		// iterate through the source, separate features
 		foreach ( $source->features as $k => $feature )
 		{
-
 			$feature_name = implode( ', ' , array_intersect_key( (array) $feature->properties, array_flip( $args->namekeys ) ) );
 			$geometry = bgeo()->new_geometry( $feature, 'json', TRUE );
 			$feature_name .= ' ' . self::centroid( $geometry )->latlon;
