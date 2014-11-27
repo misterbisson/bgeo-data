@@ -86,7 +86,6 @@ class bGeo_Data extends WP_CLI_Command
 		// iterate through the source, separate features
 		foreach ( $source->features as $k => $feature )
 		{
-
 			$feature_name = implode( ', ' , array_intersect_key( (array) $feature->properties, array_flip( $args->namekeys ) ) );
 			$geometry = bgeo()->new_geometry( $feature, 'json', TRUE );
 			$feature_name .= ' ' . self::centroid( $geometry )->latlon;
@@ -204,7 +203,17 @@ class bGeo_Data extends WP_CLI_Command
 			$search_name = self::centroid( $geometry )->latlon;
 			foreach ( $args->namekeys as $name_key )
 			{
-				$search_name .= ' ' . str_replace( '|', ' ', preg_replace( '/[0-9]*/', '', $feature->properties->$name_key ) );
+				// skip this iteration if the name key is unset or empty
+				if (
+					! isset( $feature->properties->$name_key ) ||
+					empty( $feature->properties->$name_key )
+				)
+				{
+					continue;
+				}
+
+				// get the search name from the component keys named on the command line
+				$search_name .= ' ' . trim( str_replace( '|', ' ', preg_replace( '/[0-9]*/', '', $feature->properties->$name_key ) ) );
 				WP_CLI::line( "Searching for $search_name" );
 
 				$locations = bgeo()->admin()->posts()->locationlookup( $search_name );
